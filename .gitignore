@@ -1,0 +1,44 @@
+# ---- Secrets (NEVER commit) ----
+.env
+.env.*
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ---- Virtual environments ----
+venv/
+.venv/
+env/
+ENV/
+
+# ---- Personal / generated data ----
+# Your real resume PDFs (keep the README placeholder)
+config/resumes/*
+!config/resumes/README.txt
+
+# Parsed resume profile (built from your PDF)
+data/
+!data/.gitkeep
+
+# Generated tracker workbook (your applications)
+tracker/job_applications.xlsx
+
+# Logs, sessions, rate-limit / cooldown state
+logs/
+*.log
+
+# Cold-mail drafts
+drafts/
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

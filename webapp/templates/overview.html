@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "_macros.html" import job_card, chip, empty %}
+{% block content %}
+
+{# ── KPIs ───────────────────────────────────────────────────────────────── #}
+<div class="kpis section">
+  <div class="card kpi">
+    <div class="kpi__label">To apply</div>
+    <div class="kpi__row"><div class="kpi__n">{{ counts.manual_pending }}</div>
+      <div class="kpi__ico i-indigo">📋</div></div>
+    <div class="kpi__foot"><a class="link" href="/manual" style="color:var(--primary-600);font-weight:600">Review jobs →</a></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi__label">Walk-ins</div>
+    <div class="kpi__row"><div class="kpi__n">{{ counts.walkins }}</div>
+      <div class="kpi__ico i-amber">🚶</div></div>
+    <div class="kpi__foot">Drives detected</div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi__label">Mails to approve</div>
+    <div class="kpi__row"><div class="kpi__n">{{ counts.cold_pending }}</div>
+      <div class="kpi__ico i-sky">✉️</div></div>
+    <div class="kpi__foot">{% if counts.cold_pending %}<a class="link" href="/cold-mails" style="color:var(--primary-600);font-weight:600">Approve →</a>{% else %}Nothing queued{% endif %}</div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi__label">Applied</div>
+    <div class="kpi__row"><div class="kpi__n">{{ counts.applied }}</div>
+      <div class="kpi__ico i-green">✅</div></div>
+    <div class="kpi__foot">Total submitted</div>
+  </div>
+</div>
+
+{% if last_run %}
+<div class="section card" style="padding:14px 18px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+  <strong style="font-size:13px">Last run</strong>
+  {{ chip("Found " ~ last_run.get('found', 0)) }}
+  {{ chip("Manual " ~ last_run.get('queued_manual', 0), "info") }}
+  {{ chip("Walk-ins " ~ last_run.get('walkins', 0), "warn") }}
+  {{ chip("Mails " ~ last_run.get('cold_mails', 0)) }}
+  {{ chip("Skipped " ~ last_run.get('skipped', 0), "muted") }}
+  {% if last_run.get('errors') %}{{ chip("Errors " ~ last_run.get('errors'), "warn") }}{% endif %}
+  {% if last_run.get('duration_seconds') %}{{ chip(last_run.get('duration_seconds') ~ "s", "muted") }}{% endif %}
+</div>
+{% endif %}
+
+{# ── Needs attention: top manual jobs ───────────────────────────────────── #}
+<div class="section">
+  <div class="section__head">
+    <h2>Top jobs to apply</h2>
+    {% if top_manual %}<a class="link" href="/manual">View all {{ counts.manual_pending }} →</a>{% endif %}
+  </div>
+  {% if top_manual %}
+    <div class="stack">{% for j in top_manual %}{{ job_card(j) }}{% endfor %}</div>
+  {% else %}
+    <div class="card">{{ empty("📭", "Nothing to apply to yet", "Hit “Run now” to fetch fresh jobs from your sources.") }}</div>
+  {% endif %}
+</div>
+
+{# ── Cold mails preview ─────────────────────────────────────────────────── #}
+{% if cold_preview %}
+<div class="section">
+  <div class="section__head">
+    <h2>Cold mails waiting for you</h2>
+    <a class="link" href="/cold-mails">Approve →</a>
+  </div>
+  <div class="stack">
+    {% for m in cold_preview %}
+    <div class="card job">
+      <div class="job__main">
+        <div class="job__title">{{ m.get("company") }} — {{ m.get("title") }}</div>
+        <div class="job__company">To {{ m.get("hr_name") }} · {{ m.get("email") }}</div>
+      </div>
+      {{ chip("Pending approval", "warn") }}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── Upcoming walk-ins ──────────────────────────────────────────────────── #}
+{% if upcoming_walkins %}
+<div class="section">
+  <div class="section__head">
+    <h2>Walk-in drives</h2>
+    <a class="link" href="/walkins">View all →</a>
+  </div>
+  <div class="stack">
+    {% for j in upcoming_walkins %}
+    <div class="card job">
+      <div class="job__main">
+        <div class="job__title">{{ j["Company Name"] }} — {{ j["Job Title"] }}</div>
+        <div class="job__chips">
+          {{ chip("🗓 " ~ (j["Walk-In Date"] or "TBD") ~ " " ~ (j["Walk-In Time"] or ""), "warn") }}
+          {% if j["Venue"] %}{{ chip("📍 " ~ j["Venue"]) }}{% endif %}
+        </div>
+      </div>
+      {% if j["Job URL"] %}<a class="btn btn--ghost btn--sm" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Details ↗</a>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

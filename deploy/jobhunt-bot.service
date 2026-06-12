@@ -1,0 +1,27 @@
+# systemd service to keep the Telegram bot running 24/7 on the Pi, so you can
+# control the assistant from your phone anytime (/status, /run, /manual ...).
+#
+# Install (edit the two paths/User first if your project isn't at the default):
+#   sudo cp deploy/jobhunt-bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now jobhunt-bot
+#   systemctl status jobhunt-bot          # check it's running
+#
+# This is OPTIONAL. cron already handles the scheduled scraping; this service
+# is only for the interactive Telegram remote control.
+
+[Unit]
+Description=Job-Hunt Assistant Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/job_automation
+ExecStart=/home/pi/job_automation/venv/bin/python -m telegram_bot.bot
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

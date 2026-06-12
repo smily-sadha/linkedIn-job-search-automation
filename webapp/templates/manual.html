@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "_macros.html" import job_card, empty %}
+{% block content %}
+<div class="section">
+  {% if manual %}
+    <div class="stack">{% for j in manual %}{{ job_card(j) }}{% endfor %}</div>
+  {% else %}
+    <div class="card">{{ empty("📭", "No jobs waiting", "Run the pipeline to pull fresh, high-fit roles into this list.") }}</div>
+  {% endif %}
+</div>
+{% endblock %}

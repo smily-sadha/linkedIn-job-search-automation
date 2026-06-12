@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import score_badge, empty %}
+{% block content %}
+<div class="section">
+  {% if applied %}
+  <div class="card" style="overflow:hidden">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Company / Role</th><th>Source</th><th>Fit</th>
+          <th>Applied</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for j in applied %}
+        <tr>
+          <td>
+            <div class="co">{{ j["Company Name"] }}</div>
+            <div style="color:var(--text-2)">{{ j["Job Title"] }}</div>
+          </td>
+          <td style="color:var(--text-2)">{{ j["Source"] or "—" }}</td>
+          <td>{{ score_badge(j["AI Score"]) }}</td>
+          <td style="color:var(--text-2)">{{ j["Date Applied"] or "—" }}</td>
+          <td>
+            <form method="post" action="/applied/status">
+              <input type="hidden" name="url" value="{{ j['Job URL'] }}">
+              <select name="status" onchange="this.form.submit()">
+                {% for s in statuses %}
+                <option value="{{ s }}" {{ 'selected' if j["Status"]==s }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td style="text-align:right">
+            {% if j["Job URL"] %}<a class="btn btn--ghost btn--sm" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Open ↗</a>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="card">{{ empty("✅", "No applications yet", "Jobs you submit (or mark applied) land here, where you can track each one's status.") }}</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip, empty %}
+{% block content %}
+<div class="section">
+  {% if cold_mails %}
+  <div class="card" style="padding:14px 18px;margin-bottom:16px;display:flex;
+       align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+    <div style="font-size:13.5px;color:var(--text-2)">
+      <strong>{{ cold_mails | length }}</strong> mail(s) drafted and queued. Nothing sends until you approve.
+    </div>
+    <form method="post" action="/cold-mails/approve" style="display:flex;gap:8px;align-items:center;margin:0">
+      <input type="number" name="limit" min="1" placeholder="How many? (blank = all)" style="width:190px">
+      <button class="btn btn--primary" type="submit">Approve &amp; send</button>
+    </form>
+  </div>
+  <div class="stack">
+    {% for m in cold_mails %}
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div class="job__title">{{ m.get("company") }} — {{ m.get("title") }}</div>
+        {{ chip("Pending approval", "warn") }}
+      </div>
+      <div class="job__company" style="margin-top:4px">
+        To <strong>{{ m.get("hr_name") }}</strong> · {{ m.get("email") }}
+      </div>
+      <div class="job__chips" style="margin-top:10px">{{ chip("Subject: " ~ m.get("subject", ""), "muted") }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="card">{{ empty("✉️", "No mails awaiting approval", "Drafted cold mails appear here for review. In dry-run mode they're saved to data/drafts/ instead.") }}</div>
+  {% endif %}
+</div>
+{% endblock %}

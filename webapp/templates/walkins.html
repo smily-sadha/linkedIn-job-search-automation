@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip, empty %}
+{% block content %}
+<div class="section">
+  {% if walkins %}
+  <div class="stack">
+    {% for j in walkins %}
+    <div class="card job">
+      <div class="job__main">
+        <div class="job__title">{{ j["Job Title"] or "Walk-in drive" }}</div>
+        <div class="job__company">{{ j["Company Name"] }}</div>
+        <div class="job__chips">
+          {{ chip("🗓 " ~ (j["Walk-In Date"] or "TBD") ~ " " ~ (j["Walk-In Time"] or ""), "warn") }}
+          {% if j["Venue"] %}{{ chip("📍 " ~ j["Venue"]) }}{% endif %}
+          {% if j["Location"] %}{{ chip(j["Location"]) }}{% endif %}
+          {% if j["Contact"] %}{{ chip("☎ " ~ j["Contact"], "muted") }}{% endif %}
+          {% if j["Source"] %}{{ chip(j["Source"], "info") }}{% endif %}
+        </div>
+      </div>
+      <div class="job__actions">
+        {% if j["Job URL"] %}<a class="btn btn--primary" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Details ↗</a>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="card">{{ empty("🚶", "No walk-in drives detected", "When a run finds a walk-in posting, it'll show up here with date, time and venue.") }}</div>
+  {% endif %}
+</div>
+{% endblock %}

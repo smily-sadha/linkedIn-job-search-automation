@@ -1,0 +1,48 @@
+{# Reusable UI components #}
+
+{% macro chip(text, kind="default") %}
+  <span class="chip chip--{{ kind }}">{{ text }}</span>
+{% endmacro %}
+
+{% macro score_badge(score) %}
+  {% set n = (score | int) if score is not none and score != "" else 0 %}
+  {% set tone = "high" if n >= 7 else ("mid" if n >= 4 else "low") %}
+  <span class="score score--{{ tone }}" title="AI fit score">
+    <span class="score__n">{{ n }}</span><span class="score__d">/10</span>
+  </span>
+{% endmacro %}
+
+{# A manual-apply / walk-in job card #}
+{% macro job_card(j) %}
+  <article class="card job">
+    <div class="job__main">
+      <div class="job__head">
+        <h3 class="job__title">{{ j["Job Title"] or "Untitled role" }}</h3>
+      </div>
+      <div class="job__company">{{ j["Company Name"] or "Unknown company" }}</div>
+      <div class="job__chips">
+        {% if j["Location"] %}{{ chip("📍 " ~ j["Location"]) }}{% endif %}
+        {% if j["Source"] %}{{ chip(j["Source"], "info") }}{% endif %}
+        {% if j["Date Found"] %}{{ chip("Found " ~ j["Date Found"]) }}{% endif %}
+        {% if j["Reason"] %}{{ chip(j["Reason"], "muted") }}{% endif %}
+      </div>
+    </div>
+    <div class="job__actions">
+      {% if j["Job URL"] %}
+        <a class="btn btn--primary" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Apply ↗</a>
+      {% endif %}
+      <form method="post" action="/manual/mark-applied">
+        <input type="hidden" name="url" value="{{ j['Job URL'] }}">
+        <button class="btn btn--ghost" type="submit">Mark applied</button>
+      </form>
+    </div>
+  </article>
+{% endmacro %}
+
+{% macro empty(icon, head, sub="") %}
+  <div class="empty">
+    <div class="empty__icon">{{ icon }}</div>
+    <div class="empty__head">{{ head }}</div>
+    {% if sub %}<div class="empty__sub">{{ sub }}</div>{% endif %}
+  </div>
+{% endmacro %}

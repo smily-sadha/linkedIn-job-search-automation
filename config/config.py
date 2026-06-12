@@ -1,0 +1,180 @@
+"""
+Central configuration for the job-hunt assistant.
+
+Secrets are read from the environment (.env file) so nothing sensitive lives
+in source control. Everything else (keywords, weights, limits) lives here.
+"""
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Project root = the folder that contains this config package's parent.
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env")
+
+
+def _env(key: str, default: str = "") -> str:
+    return os.getenv(key, default).strip()
+
+
+def _bool(key: str, default: bool) -> bool:
+    return _env(key, str(default)).lower() in ("1", "true", "yes", "on")
+
+
+# ── Profile ────────────────────────────────────────────────────────────────
+YOUR_NAME = _env("YOUR_NAME", "Your Full Name")
+YOUR_EMAIL = _env("YOUR_EMAIL", "your@gmail.com")
+YOUR_PHONE = _env("YOUR_PHONE", "+91-XXXXXXXXXX")
+
+# ── Resumes ────────────────────────────────────────────────────────────────
+# You currently have a single resume, so every variant points at it. When you
+# add tailored versions, drop them in config/resumes/ and update the paths here.
+_SINGLE_RESUME = "config/resumes/sadhasivam updated resume 1.1.pdf"
+RESUMES = {
+    "python": _SINGLE_RESUME,
+    "java": _SINGLE_RESUME,
+    "fullstack": _SINGLE_RESUME,
+    "default": _SINGLE_RESUME,
+}
+
+# Which resume to pick based on words found in the job description.
+RESUME_KEYWORD_MAP = {
+    "python": ["python", "django", "flask", "fastapi", "pandas"],
+    "java": ["java", "spring", "springboot", "hibernate", "maven"],
+    "fullstack": ["react", "node", "angular", "vue", "full stack", "fullstack"],
+}
+
+# ── Job search ─────────────────────────────────────────────────────────────
+JOB_KEYWORDS = [
+    "Python Developer", "Software Engineer", "Backend Developer",
+    "Django Developer", "Flask Developer", "Junior Software Engineer",
+    "Entry Level Developer", "Graduate Trainee Software",
+]
+JOB_LOCATION = "India"
+EXPERIENCE_LEVEL = "Entry Level"
+MIN_AI_SCORE = 7  # Only surface/apply jobs scoring >= this.
+
+# When True, the bot reads your resume PDF, extracts your real skills, and uses
+# them to (a) build search keywords and (b) score jobs against YOUR profile
+# instead of the static JOB_KEYWORDS / SKILL_WEIGHTS below.
+USE_RESUME_PROFILE = True
+
+# ── Job sources (ToS-friendly: public APIs + RSS feeds only) ────────────────
+# Each source is queried programmatically through documented endpoints.
+# No browser automation, no anti-bot evasion, no logging in as you.
+SOURCES = {
+    # Remotive: public job API. https://remotive.com/api/remote-jobs
+    "remotive": {"enabled": True},
+    # RemoteOK: public job API. https://remoteok.com/api
+    "remoteok": {"enabled": True},
+    # Generic RSS feeds — add any career-page / aggregator RSS URL here.
+    "rss": {
+        "enabled": True,
+        "feeds": [
+            # "https://example.com/jobs.rss",
+        ],
+    },
+    # Gmail: reads job-ALERT emails from your own inbox (LinkedIn / Naukri /
+    # Indeed alerts you opted into). This is the ToS-safe way to get LinkedIn
+    # jobs — you read your own email, you never automate the LinkedIn site.
+    # Requires GMAIL_EMAIL + GMAIL_APP_PASSWORD in .env and IMAP enabled.
+    "gmail": {
+        "enabled": True,
+        # Each run only looks at alert emails from the last N hours. Set this a
+        # little above your run interval (runs are every 3h) so nothing slips
+        # through a boundary, while old mail isn't re-scanned every run.
+        # (Already-tracked jobs are deduped anyway, so overlap is harmless.)
+        "lookback_hours": 4,
+        "max_emails": 60,              # safety cap on messages parsed per run
+        # Only TRUE job-alert senders (not notifications/newsletters/marketing).
+        # These are matched as a substring of the From header.
+        "senders": [
+            "jobalerts-noreply@linkedin.com",   # LinkedIn saved-search alerts
+            "jobs-noreply@linkedin.com",        # LinkedIn "X is hiring"
+            "jobs-listings@linkedin.com",
+            "alerts@naukri.com",                # Naukri job alerts (set them up)
+            "jobalerts@naukri.com",
+            "alert@indeed.com",                 # Indeed job alerts (set them up)
+            "donotreply@match.indeed.com",
+            "invitetoapply@indeed.com",
+        ],
+    },
+}
+
+# ── Gmail (cold mail) ──────────────────────────────────────────────────────
+GMAIL = {
+    "email": _env("GMAIL_EMAIL", YOUR_EMAIL),
+    "app_password": _env("GMAIL_APP_PASSWORD"),
+    "sender_name": YOUR_NAME,
+}
+
+# ── Telegram ───────────────────────────────────────────────────────────────
+TELEGRAM_BOT_TOKEN = _env("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = _env("TELEGRAM_CHAT_ID")
+
+# ── Files ──────────────────────────────────────────────────────────────────
+EXCEL_FILE = str(ROOT / "tracker" / "job_applications.xlsx")
+LOG_DIR = str(ROOT / "logs")
+DATA_DIR = str(ROOT / "data")
+SESSION_DIR = str(ROOT / "logs" / "sessions")
+
+# ── Scheduler ──────────────────────────────────────────────────────────────
+# Runs every 3 hours, around the clock (8 runs/day).
+SCHEDULE_TIMES = ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
+WEEKLY_REPORT_DAY = "sunday"
+WEEKLY_REPORT_TIME = "09:00"
+
+# ── Behaviour / safety rails ───────────────────────────────────────────────
+# DRY_RUN: when True, cold mails are written to data/drafts/ instead of sent.
+DRY_RUN = _bool("DRY_RUN", True)
+# REQUIRE_MAIL_CONFIRM: when True, a mail is only sent after explicit approval
+# (Telegram /approve or main.py --send-approved). Mass-blasting is intentionally
+# not supported.
+REQUIRE_MAIL_CONFIRM = _bool("REQUIRE_MAIL_CONFIRM", True)
+
+MAX_JOBS_PER_RUN = 40
+# Per-source daily caps keep this polite and within any rate guidance.
+DAILY_LIMITS = {
+    "remotive": 100,
+    "remoteok": 100,
+    "rss": 100,
+}
+# Cold-mail caps (deliberately conservative to avoid looking like spam).
+MAX_COLD_MAILS_PER_DAY = 15
+COMPANY_COOLDOWN_DAYS = 30   # Skip a company applied to in the last N days.
+FOLLOWUP_AFTER_DAYS = 5      # Send a follow-up after N days with no reply.
+MAX_FOLLOWUPS = 1            # At most this many follow-ups per company.
+
+# ── Cold-mail templates ────────────────────────────────────────────────────
+COLD_MAIL_SUBJECT = "Application for {job_title} - {your_name}"
+COLD_MAIL_BODY = """Dear {hr_name},
+
+I came across the {job_title} opening at {company} and I am very interested.
+
+I am a fresher with hands-on experience in Python, Django, and backend
+development, and I noticed your description mentions {jd_keyword}, which aligns
+well with my skill set.
+
+I have attached my resume for your review and would welcome the chance to
+discuss how I can contribute to {company}.
+
+Looking forward to hearing from you.
+
+Best regards,
+{your_name}
+{your_email} | {your_phone}
+"""
+
+FOLLOWUP_SUBJECT = "Follow-up: {job_title} Application - {your_name}"
+FOLLOWUP_BODY = """Dear {hr_name},
+
+I wanted to follow up on my application for the {job_title} role at {company},
+which I sent on {original_date}.
+
+I remain very enthusiastic about this opportunity and would be glad to share any
+additional information you need.
+
+Best regards,
+{your_name}
+"""
