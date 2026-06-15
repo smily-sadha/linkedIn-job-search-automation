@@ -153,6 +153,79 @@ python -m telegram_bot.bot        # start the Telegram remote control
 python -m webapp                  # start the local web dashboard (127.0.0.1:8000)
 ```
 
+## Deployment (running 24/7)
+
+The app is pure Python and runs on **Linux and Windows**. Pick your platform
+below. The triggering (every 3 hours + weekly report) is done by the OS
+scheduler — `cron`/`systemd` on Linux, Task Scheduler on Windows — so it keeps
+running even when you're not at the machine.
+
+> Never copy the `venv/` folder between machines — it's platform-specific.
+> Each platform rebuilds its own venv during setup.
+
+### Linux (Raspberry Pi, Ubuntu, Debian, any server)
+
+Ready-made scripts live in `deploy/`. Full walkthrough:
+[`deploy/PI_SETUP.md`](deploy/PI_SETUP.md). Short version:
+
+1. **Install Python** and copy the project (without `venv/`):
+   ```bash
+   sudo apt update && sudo apt install -y python3 python3-venv python3-pip
+   cd /home/you/job_automation      # wherever you put the project
+   rm -rf venv                      # remove any venv copied from another OS
+   ```
+2. **Copy your secrets** — `.env` and `config/resumes/your-resume.pdf` (these
+   are not in git).
+3. **Run the one-shot setup** — builds the venv, installs deps, and installs the
+   cron jobs (a run every 3 hours + a weekly report Sunday 09:00):
+   ```bash
+   bash deploy/setup_pi.sh
+   ```
+   > If you see a `bash\r: No such file` error (Windows line endings), fix it
+   > first: `sudo apt install -y dos2unix && dos2unix deploy/*.sh`
+4. **Test once by hand:**
+   ```bash
+   ./venv/bin/python main.py            # one run now
+   ./venv/bin/python main.py --status   # tracker summary
+   ```
+5. **(Optional) Keep the Telegram bot running 24/7** as a service so you can
+   control it from your phone anytime. Edit `User=` and the paths in
+   [`deploy/jobhunt-bot.service`](deploy/jobhunt-bot.service) if your user/folder
+   differ from `pi` / `/home/pi/job_automation`, then:
+   ```bash
+   sudo cp deploy/jobhunt-bot.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now jobhunt-bot
+   systemctl status jobhunt-bot          # should say "active (running)"
+   ```
+
+Everyday use on Linux: `crontab -l` to see the schedule, `crontab -e` to change
+it (`0 */3 * * *` = every 3 hours), and `tail -f logs/scheduler.log` to watch
+runs. Set the timezone with `sudo timedatectl set-timezone Asia/Kolkata` so the
+schedule fires in IST.
+
+### Windows (Task Scheduler)
+
+Launchers live in `deploy/` as `.bat`/`.vbs` files (paths inside are absolute —
+edit them if you move the project):
+
+1. **Install Python 3.10+**, then from the project folder create the venv and
+   install deps:
+   ```powershell
+   python -m venv venv
+   .\venv\Scripts\pip install -r requirements.txt
+   ```
+2. **Copy your secrets** — `.env` and your resume PDF into `config/resumes/`.
+3. **Schedule the job-hunt run**: open **Task Scheduler** → *Create Task* → add a
+   trigger (e.g. every 3 hours) → *Action: Start a program* →
+   `deploy\run_job_hunt.bat`. It runs one pass and logs to
+   `logs/scheduler_win.log`.
+4. **(Optional) Auto-start the web dashboard** at logon with another task
+   pointing at `deploy\run_dashboard.vbs` (the `.vbs` launches it with no console
+   window). The dashboard has its own built-in 3-hour scheduler, so if you run it
+   continuously you can skip the Task Scheduler trigger in step 3 to avoid
+   double-fetching.
+
 ## Web dashboard (local)
 
 A small FastAPI + Jinja dashboard that wraps the existing tracker so you can
