@@ -36,6 +36,10 @@ class RSSSource(BaseSource):
                 summary = _strip_html(e.get("summary", ""))
                 if kw not in f"{title} {summary}".lower():
                     continue
+                pp = e.get("published_parsed") or e.get("updated_parsed")
+                posted = "%04d-%02d-%02d" % (pp.tm_year, pp.tm_mon, pp.tm_mday) if pp else ""
+                posted_at = ("%04d-%02d-%02dT%02d:%02d:%02d" % (
+                    pp.tm_year, pp.tm_mon, pp.tm_mday, pp.tm_hour, pp.tm_min, pp.tm_sec)) if pp else ""
                 out.append({
                     "title": title,
                     "company": e.get("author", "") or parsed.feed.get("title", "RSS"),
@@ -43,6 +47,8 @@ class RSSSource(BaseSource):
                     "url": e.get("link", ""),
                     "description": summary,
                     "source": self.name,
+                    "posted_at": posted_at,
+                    "posted": posted,
                 })
         self.logger.info("[rss] '%s' -> %d jobs across %d feeds", keyword, len(out), len(feeds))
         return out

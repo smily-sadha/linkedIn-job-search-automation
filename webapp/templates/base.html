@@ -119,6 +119,9 @@
                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .job__company { color: var(--text-2); font-size: 13.5px; margin-top: 1px; }
     .job__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .job__why { margin-top: 9px; font-size: 12.5px; color: var(--text-2); line-height: 1.4;
+                background: var(--surface-2); border: 1px solid var(--border);
+                border-radius: 8px; padding: 6px 10px; }
     .job__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .job__actions form { margin: 0; }
 
@@ -130,6 +133,7 @@
     .chip--muted { background: transparent; color: var(--muted); }
     .chip--success { background: var(--success-weak); color: var(--success); border-color: #d1fae5; }
     .chip--warn { background: var(--warn-weak); color: var(--warn); border-color: #fde68a; }
+    .chip--danger { background: var(--danger-weak); color: var(--danger); border-color: #fecaca; }
 
     .score { display: inline-flex; align-items: baseline; gap: 1px; font-weight: 700;
              padding: 4px 10px; border-radius: 10px; font-size: 14px; flex-shrink: 0; }
@@ -138,6 +142,75 @@
     .score--mid  { background: var(--warn-weak); color: var(--warn); }
     .score--low  { background: var(--surface-2); color: var(--muted); }
 
+    /* ── Rank badge & selection-probability meter ──────────────────────────── */
+    .job__rank { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+                 display: grid; place-items: center; font-weight: 700; font-size: 13px;
+                 background: var(--surface-2); color: var(--text-2);
+                 border: 1px solid var(--border); }
+    .prob { display: flex; flex-direction: column; gap: 5px; width: 132px; flex-shrink: 0; }
+    .prob__top { display: flex; align-items: baseline; gap: 7px; }
+    .prob__pct { font-size: 19px; font-weight: 750; letter-spacing: -.4px; line-height: 1; }
+    .prob__label { font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .prob__bar { width: 100%; height: 5px; border-radius: 999px; overflow: hidden;
+                 background: var(--surface-2); border: 1px solid var(--border); }
+    .prob__fill { display: block; height: 100%; border-radius: 999px; }
+    .prob--high .prob__pct, .prob--high .prob__label { color: var(--success); }
+    .prob--high .prob__fill { background: var(--success); }
+    .prob--mid .prob__pct, .prob--mid .prob__label { color: var(--warn); }
+    .prob--mid .prob__fill { background: var(--warn); }
+    .prob--low .prob__pct, .prob--low .prob__label { color: var(--muted); }
+    .prob--low .prob__fill { background: var(--border-strong); }
+
+    .rank-note { font-size: 12.5px; color: var(--text-2); margin-bottom: 12px;
+                 display: flex; align-items: center; gap: 6px; }
+
+    /* ── Insights meter + tailor cards ─────────────────────────────────────── */
+    .meter { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-2);
+             border: 1px solid var(--border); overflow: hidden; max-width: 220px; }
+    .meter__fill { display: block; height: 100%; border-radius: 999px;
+                   background: linear-gradient(90deg, #6366f1, #06b6d4); }
+    .tailor-note { font-size: 12.5px; color: var(--warn); background: var(--warn-weak);
+                   border: 1px solid #fde68a; border-radius: 9px; padding: 9px 12px; margin-bottom: 14px; }
+    .tcard { padding: 14px 18px; margin-bottom: 12px; }
+    .tcard__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .tcard__head h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .tcard__body { font-size: 14px; line-height: 1.6; color: var(--text); }
+
+    /* ── Application-window status ─────────────────────────────────────────── */
+    .wstat { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+             font-weight: 600; padding: 3px 9px; border-radius: 999px;
+             border: 1px solid transparent; white-space: nowrap; }
+    .wstat--open   { background: var(--success-weak); color: var(--success); border-color: #d1fae5; }
+    .wstat--soon   { background: var(--warn-weak); color: var(--warn); border-color: #fde68a; }
+    .wstat--closed { background: var(--danger-weak); color: var(--danger); border-color: #fecaca; }
+    .wstat--unknown{ background: var(--surface-2); color: var(--muted); border-color: var(--border); }
+    .job--closed { opacity: .6; }
+    .job--closed:hover { opacity: 1; transition: opacity .15s; }
+
+    /* ── History day groups ────────────────────────────────────────────────── */
+    .day { margin-bottom: 26px; }
+    .day__head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px;
+                 padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .day__label { font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+    .day__count { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+    /* ── "New today" badge + manual toolbar / segmented toggle ─────────────── */
+    .newbadge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
+                padding: 2px 8px; border-radius: 999px; background: var(--primary-weak);
+                color: var(--primary-600); border: 1px solid #dfe1fb; letter-spacing: .01em; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between;
+               gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .toolbar form { margin: 0; }
+    .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border);
+           border-radius: var(--radius-sm); padding: 3px; gap: 2px; }
+    .seg__btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
+                font-weight: 600; color: var(--text-2); padding: 6px 12px; border-radius: 7px; }
+    .seg__btn:hover { background: var(--surface-2); }
+    .seg__btn.active { background: var(--primary-weak); color: var(--primary-600); }
+    .seg__n { font-size: 11.5px; font-weight: 700; background: var(--surface-2);
+              border-radius: 999px; padding: 0 7px; }
+    .seg__btn.active .seg__n { background: #fff; }
+
     .btn { display: inline-flex; align-items: center; gap: 6px; font: inherit;
            font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-sm);
            border: 1px solid transparent; cursor: pointer; transition: filter .12s, background .12s; }
@@ -145,7 +218,11 @@
     .btn--primary:hover { background: var(--primary-600); }
     .btn--ghost { background: var(--surface); color: var(--text-2); border-color: var(--border-strong); }
     .btn--ghost:hover { background: var(--surface-2); color: var(--text); }
+    .btn--soft { background: var(--primary-weak); color: var(--primary-600); border-color: #dfe1fb; }
+    .btn--soft:hover { background: #e4e8ff; }
     .btn--sm { padding: 6px 10px; font-size: 12.5px; }
+    .btn--del { color: var(--muted); padding: 6px 9px; line-height: 1; }
+    .btn--del:hover { background: var(--danger-weak); color: var(--danger); border-color: #fecaca; }
 
     select, input[type=number], input[type=text] {
       font: inherit; font-size: 13px; background: var(--surface); color: var(--text);
@@ -216,6 +293,11 @@
     <a class="nav__item {{ 'active' if active=='applied' }}" href="/applied">
       <span class="ico">✅</span> Applied
       {% if counts.applied %}<span class="count">{{ counts.applied }}</span>{% endif %}</a>
+    <a class="nav__item {{ 'active' if active=='history' }}" href="/history">
+      <span class="ico">🕘</span> History
+      {% if counts.applied %}<span class="count">{{ counts.applied }}</span>{% endif %}</a>
+    <a class="nav__item {{ 'active' if active=='insights' }}" href="/insights">
+      <span class="ico">📊</span> What's Working</a>
 
     <div class="sidebar__foot">Local · 127.0.0.1<br>No data leaves your machine.</div>
   </aside>

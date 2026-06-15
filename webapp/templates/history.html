@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip, status_chip, prob_badge, empty, delete_form %}
+{% block content %}
+<div class="section">
+  {% if groups %}
+    {% for g in groups %}
+    <div class="day">
+      <div class="day__head">
+        <span class="day__label">{{ g.label }}</span>
+        <span class="day__count">{{ g.count }} application{{ '' if g.count == 1 else 's' }}</span>
+      </div>
+      <div class="stack">
+        {% for j in g.jobs %}
+        <div class="card job">
+          <div class="job__main">
+            <div class="job__title">{{ j["Job Title"] or "Untitled role" }}</div>
+            <div class="job__company">{{ j["Company Name"] or "Unknown company" }}</div>
+            <div class="job__chips">
+              {{ status_chip(j["Status"]) }}
+              {% if j["Location"] %}{{ chip("📍 " ~ j["Location"]) }}{% endif %}
+              {% if j["Source"] %}{{ chip(j["Source"], "info") }}{% endif %}
+              {% if j["Resume Used"] %}{{ chip("📄 " ~ j["Resume Used"], "muted") }}{% endif %}
+            </div>
+          </div>
+          {% if j.prob %}{{ prob_badge(j.prob) }}{% endif %}
+          <div class="job__actions">
+            {% if j["Job URL"] %}<a class="btn btn--ghost btn--sm" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Open ↗</a>{% endif %}
+            {{ delete_form("/applied/delete", {"url": j["Job URL"], "origin": "/history"}, "Delete this application from your records?") }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="card">{{ empty("🕘", "No applications yet", "Jobs you apply to (or mark applied) land here, newest day first. Today's applications move out of the dashboard and into your history.") }}</div>
+  {% endif %}
+</div>
+{% endblock %}

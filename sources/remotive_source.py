@@ -29,6 +29,8 @@ class RemotiveSource(BaseSource):
                 "url": j.get("url", ""),
                 "description": _strip_html(j.get("description", "")),
                 "source": self.name,
+                "posted_at": j.get("publication_date") or "",          # full datetime
+                "posted": (j.get("publication_date") or "")[:10],        # YYYY-MM-DD
             })
         self.logger.info("[remotive] '%s' -> %d jobs", keyword, len(out))
         return out

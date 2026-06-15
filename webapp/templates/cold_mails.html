@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import chip, empty %}
+{% from "_macros.html" import chip, empty, delete_form %}
 {% block content %}
 <div class="section">
   {% if cold_mails %}
@@ -18,7 +18,10 @@
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div class="job__title">{{ m.get("company") }} — {{ m.get("title") }}</div>
-        {{ chip("Pending approval", "warn") }}
+        <div style="display:flex;align-items:center;gap:8px">
+          {{ chip("Pending approval", "warn") }}
+          {{ delete_form("/cold-mails/delete", {"email": m.get("email", ""), "company": m.get("company", "")}, "Delete this draft mail?") }}
+        </div>
       </div>
       <div class="job__company" style="margin-top:4px">
         To <strong>{{ m.get("hr_name") }}</strong> · {{ m.get("email") }}

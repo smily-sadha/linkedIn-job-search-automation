@@ -54,11 +54,40 @@ JOB_KEYWORDS = [
 JOB_LOCATION = "India"
 EXPERIENCE_LEVEL = "Entry Level"
 MIN_AI_SCORE = 7  # Only surface/apply jobs scoring >= this.
+# Push an instant Telegram alert for fresh jobs scoring >= this (high match),
+# so you can apply within the first hour. Needs TELEGRAM_* configured.
+ALERT_MIN_SCORE = int(_env("ALERT_MIN_SCORE", "7") or "7")
+
+# Freshness: only surface jobs actually posted within this many hours, for
+# sources that expose a real posting date (Remotive / RemoteOK / RSS). Gmail
+# freshness is governed by GMAIL_LOOKBACK_HOURS instead, since alert emails
+# carry no posting date — a short lookback (≈ the 3h run interval) keeps those
+# fresh. 0 disables the filter.
+FRESH_MAX_HOURS = int(_env("FRESH_MAX_HOURS", "24") or "24")
+
+# Adaptive Gmail lookback: each run reads alert emails going back to the LAST
+# run (so a run after a 7h gap looks back ~7h, a 3-hourly run ~3h), capped just
+# above the freshness window since older emails can only hold stale jobs. This
+# makes every run — scheduled or manual — pick up exactly what's new since the
+# previous one, with no gaps. Set False to use a fixed GMAIL_LOOKBACK_HOURS.
+ADAPTIVE_LOOKBACK = _bool("ADAPTIVE_LOOKBACK", True)
 
 # When True, the bot reads your resume PDF, extracts your real skills, and uses
 # them to (a) build search keywords and (b) score jobs against YOUR profile
 # instead of the static JOB_KEYWORDS / SKILL_WEIGHTS below.
 USE_RESUME_PROFILE = True
+
+# ── LLM match scoring (optional, via Groq — OpenAI-compatible API) ───────────
+# When enabled, jobs are scored by an LLM that reasons about how well YOUR
+# resume matches the role (a "Match" score, not a real hiring probability).
+# Needs GROQ_API_KEY in .env (free tier at https://console.groq.com). Any
+# failure falls back to the keyword scorer, so a missing key or wrong model
+# never breaks a run. Groq is OpenAI-compatible, so this uses plain HTTP
+# (requests) — no extra SDK.
+USE_LLM_SCORING = _bool("USE_LLM_SCORING", False)
+GROQ_API_KEY = _env("GROQ_API_KEY")
+GROQ_MODEL = _env("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_API_URL = _env("GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions")
 
 # ── Job sources (ToS-friendly: public APIs + RSS feeds only) ────────────────
 # Each source is queried programmatically through documented endpoints.

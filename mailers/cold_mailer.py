@@ -70,6 +70,15 @@ def _first_jd_keyword(jd_text: str) -> str:
 
 
 def _render(job: dict) -> tuple[str, str]:
+    # Prefer a personalised LLM draft; fall back to the fixed template.
+    try:
+        from ai.mail_writer import write_cold_email
+        llm = write_cold_email(job)
+        if llm is not None:
+            return llm
+    except Exception as exc:
+        logger.warning("[ColdMail] LLM draft failed (%s); using template", exc)
+
     subject = COLD_MAIL_SUBJECT.format(job_title=job.get("title", ""), your_name=YOUR_NAME)
     body = COLD_MAIL_BODY.format(
         hr_name=job.get("hr_name", "Hiring Manager"),
@@ -157,6 +166,18 @@ def _send(record: dict) -> bool:
 
 def list_pending() -> list[dict]:
     return _read_json(_QUEUE_FILE, [])
+
+
+def discard_pending(email: str, company: str = "") -> bool:
+    """Drop the first queued draft matching `email` (and `company` if given)."""
+    queue = _read_json(_QUEUE_FILE, [])
+    for i, rec in enumerate(queue):
+        if rec.get("email") == email and (not company or rec.get("company") == company):
+            queue.pop(i)
+            _write_json(_QUEUE_FILE, queue)
+            logger.info("[ColdMail] Discarded pending draft to %s (%s)", email, company)
+            return True
+    return False
 
 
 def send_approved(limit: int | None = None) -> dict:

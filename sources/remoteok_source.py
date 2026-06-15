@@ -37,6 +37,8 @@ class RemoteOKSource(BaseSource):
                 "url": j.get("url", ""),
                 "description": _strip_html(j.get("description", "")),
                 "source": self.name,
+                "posted_at": j.get("date") or "",          # full ISO8601 (for 24h filter)
+                "posted": (j.get("date") or "")[:10],        # YYYY-MM-DD (for display)
             })
         self.logger.info("[remoteok] '%s' -> %d jobs", keyword, len(out))
         return out

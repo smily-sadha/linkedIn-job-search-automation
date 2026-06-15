@@ -6,6 +6,7 @@ Page routes (server-rendered, share one app shell):
     GET  /walkins     Walk-In Drives
     GET  /cold-mails  Cold mails awaiting approval
     GET  /applied     Applied jobs (with status management)
+    GET  /history     Applied jobs grouped by day (timeline)
 
 Action routes (POST, redirect back with a flash message):
     POST /manual/mark-applied  move a manual job into Applied Jobs
@@ -31,6 +32,13 @@ from webapp import runner
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 app = FastAPI(title="Job-Hunt Assistant")
+
+
+@app.on_event("startup")
+def _start_scheduler() -> None:
+    """Kick off the daily auto-fetch when the server boots."""
+    from webapp import scheduler
+    scheduler.start()
 
 
 def _ctx(request: Request, active: str, title: str, subtitle: str = "",
@@ -72,11 +80,13 @@ def overview(request: Request, msg: str | None = None, err: str | None = None):
 
 
 @app.get("/manual", response_class=HTMLResponse)
-def manual_page(request: Request, msg: str | None = None, err: str | None = None):
+def manual_page(request: Request, msg: str | None = None, err: str | None = None,
+                new: str | None = None):
+    new_only = new in ("1", "true", "yes")
     return _render("manual.html", _ctx(
         request, "manual", "Manual Apply Needed",
         "High-fit jobs to review and submit", msg=msg, err=err,
-        manual=repo.manual_jobs(),
+        manual=repo.manual_jobs(new_only=new_only), new_only=new_only,
     ))
 
 
@@ -104,6 +114,47 @@ def applied_page(request: Request, msg: str | None = None, err: str | None = Non
     ))
 
 
+@app.get("/history", response_class=HTMLResponse)
+def history_page(request: Request, msg: str | None = None, err: str | None = None):
+    return _render("history.html", _ctx(
+        request, "history", "Application History",
+        "Everything you've applied to, grouped by day", msg=msg, err=err,
+        groups=repo.applied_history(),
+    ))
+
+
+@app.get("/insights", response_class=HTMLResponse)
+def insights_page(request: Request, msg: str | None = None, err: str | None = None):
+    return _render("insights.html", _ctx(
+        request, "insights", "What's Working",
+        "Where your replies actually come from", msg=msg, err=err,
+        data=repo.insights(),
+    ))
+
+
+@app.get("/tailor", response_class=HTMLResponse)
+def tailor_page(request: Request, url: str = "", msg: str | None = None,
+                err: str | None = None):
+    job = repo.manual_job_by_url(url)
+    result, note = None, None
+    if job is None:
+        note = "Job not found — it may have been applied to or deleted."
+    else:
+        from ai.groq_client import is_enabled
+        if not is_enabled():
+            note = "LLM is off. Set USE_LLM_SCORING=true and GROQ_API_KEY in .env to use tailoring."
+        else:
+            from ai.tailor import tailor_application
+            result = tailor_application(job)
+            if result is None:
+                note = "The LLM couldn't generate this right now — try again in a moment."
+    return _render("tailor.html", _ctx(
+        request, "manual", "Tailor Application",
+        (job["Job Title"] if job else ""), msg=msg, err=err,
+        job=job, result=result, note=note,
+    ))
+
+
 # ── Actions ─────────────────────────────────────────────────────────────────--
 def _back(to: str = "/", msg: str = "", err: str = "") -> RedirectResponse:
     params = {k: v for k, v in (("msg", msg), ("err", err)) if v}
@@ -118,6 +169,78 @@ def mark_applied(url: str = Form(...)):
     except repo.WorkbookLocked as exc:
         return _back("/manual", err=str(exc))
     return _back("/manual", msg="Moved to Applied." if ok else "Job not found.")
+
+
+@app.post("/manual/dismiss")
+def dismiss(url: str = Form(...)):
+    try:
+        ok = repo.dismiss_manual(url)
+    except repo.WorkbookLocked as exc:
+        return _back("/manual", err=str(exc))
+    return _back("/manual", msg="Dismissed." if ok else "Job not found.")
+
+
+@app.post("/manual/verify")
+def verify_status(origin: str = Form("/manual")):
+    try:
+        r = repo.verify_manual_status()
+    except Exception as exc:
+        return _back(origin, err=f"Verify failed: {exc}")
+    return _back(origin, msg=f"Checked {r['checked']}: {r['open']} open, "
+                 f"{r['closed']} closed, {r['unknown']} unknown.")
+
+
+@app.post("/manual/clear-closed")
+def clear_closed(origin: str = Form("/manual")):
+    try:
+        n = repo.clear_closed_manual()
+    except repo.WorkbookLocked as exc:
+        return _back(origin, err=str(exc))
+    return _back(origin, msg=f"Cleared {n} closed job(s)." if n
+                 else "No closed jobs to clear.")
+
+
+@app.post("/manual/clear-all")
+def clear_all(origin: str = Form("/manual")):
+    try:
+        n = repo.clear_all_manual()
+    except repo.WorkbookLocked as exc:
+        return _back(origin, err=str(exc))
+    return _back(origin, msg=f"Cleared all {n} job(s) from the list." if n
+                 else "List is already empty.")
+
+
+@app.post("/manual/delete")
+def manual_delete(url: str = Form(...), origin: str = Form("/manual")):
+    try:
+        ok = repo.delete_by_url(repo.S_MANUAL, url)
+    except repo.WorkbookLocked as exc:
+        return _back(origin, err=str(exc))
+    return _back(origin, msg="Deleted." if ok else "Job not found.")
+
+
+@app.post("/walkins/delete")
+def walkin_delete(url: str = Form(...), origin: str = Form("/walkins")):
+    try:
+        ok = repo.delete_by_url(repo.S_WALKIN, url)
+    except repo.WorkbookLocked as exc:
+        return _back(origin, err=str(exc))
+    return _back(origin, msg="Deleted." if ok else "Walk-in not found.")
+
+
+@app.post("/applied/delete")
+def applied_delete(url: str = Form(...), origin: str = Form("/applied")):
+    try:
+        ok = repo.delete_by_url(repo.S_APPLIED, url)
+    except repo.WorkbookLocked as exc:
+        return _back(origin, err=str(exc))
+    return _back(origin, msg="Deleted." if ok else "Application not found.")
+
+
+@app.post("/cold-mails/delete")
+def cold_mail_delete(email: str = Form(...), company: str = Form("")):
+    ok = repo.discard_cold_mail(email, company)
+    return _back("/cold-mails", msg="Draft deleted." if ok else "Draft not found.")
 
 
 @app.post("/applied/status")

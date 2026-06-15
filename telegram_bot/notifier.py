@@ -45,5 +45,21 @@ def send_alert(text: str) -> bool:
     return _send_message(f"ALERT\n{text}")
 
 
+def send_job_alerts(alerts: list, top: int = 8) -> bool:
+    """Push a digest of fresh high-match jobs found this run (with apply links)."""
+    if not alerts:
+        return False
+    ranked = sorted(alerts, key=lambda a: a.get("score", 0), reverse=True)
+    lines = [f"🔥 {len(alerts)} fresh high-match job(s) — apply early!"]
+    for a in ranked[:top]:
+        lines.append(
+            f"\n• {a.get('title', 'Role')} @ {a.get('company', '?')} "
+            f"(match {a.get('score', 0)}/10)\n{a.get('url', '')}"
+        )
+    if len(ranked) > top:
+        lines.append(f"\n…and {len(ranked) - top} more in the dashboard.")
+    return _send_message("\n".join(lines))
+
+
 def send_report(text: str) -> bool:
     return _send_message(text)

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block content %}
+
+{% if data.total %}
+<div class="kpis section">
+  <div class="card kpi">
+    <div class="kpi__label">Applied</div>
+    <div class="kpi__row"><div class="kpi__n">{{ data.total }}</div><div class="kpi__ico i-indigo">📨</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi__label">Responses</div>
+    <div class="kpi__row"><div class="kpi__n">{{ data.responded }}</div><div class="kpi__ico i-sky">↩️</div></div>
+    <div class="kpi__foot">{{ data.response_rate }}% response rate</div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi__label">Interviews</div>
+    <div class="kpi__row"><div class="kpi__n">{{ data.interviews }}</div><div class="kpi__ico i-amber">🎤</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi__label">Offers</div>
+    <div class="kpi__row"><div class="kpi__n">{{ data.offers }}</div><div class="kpi__ico i-green">🎉</div></div>
+  </div>
+</div>
+
+{% macro bars(rows) %}
+  <div class="card" style="padding:6px 0">
+    <table class="table">
+      <thead><tr><th>Name</th><th>Applied</th><th>Responses</th><th style="width:34%">Response rate</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="co">{{ r.name }}</td>
+          <td style="color:var(--text-2)">{{ r.applied }}</td>
+          <td style="color:var(--text-2)">{{ r.responded }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="meter"><span class="meter__fill" style="width:{{ r.rate }}%"></span></span>
+              <strong style="font-size:13px">{{ r.rate }}%</strong>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endmacro %}
+
+<div class="section">
+  <div class="section__head"><h2>By source</h2></div>
+  {{ bars(data.by_source) }}
+</div>
+
+<div class="section">
+  <div class="section__head"><h2>By match quality</h2></div>
+  {{ bars(data.by_tier) }}
+  <div class="rank-note" style="margin-top:10px">💡 If high-match roles reply more than low-match ones, trust the Match score and skip the weak ones. If nothing replies, the bottleneck is the resume/outreach — try the ✨ Tailor button.</div>
+</div>
+
+{% else %}
+<div class="section"><div class="card">{{ empty("📊", "No data yet", "Once you've applied to (or marked applied) a few jobs and updated their status, this page shows where your replies come from.") }}</div></div>
+{% endif %}
+{% endblock %}

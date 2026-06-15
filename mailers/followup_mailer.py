@@ -13,7 +13,7 @@ from config.config import (
 )
 from mailers.cold_mailer import _send
 from tracker import excel_tracker as xl
-from tracker.excel_tracker import S_COLD
+from tracker.excel_tracker import S_COLD, WB_LOCK, save_workbook
 from utils.logger import get_logger
 
 logger = get_logger("followup_mailer")
@@ -31,6 +31,11 @@ def _due(followup_date: str) -> bool:
 
 def send_followups() -> dict:
     summary = {"sent": 0, "drafted": 0, "skipped": 0}
+    with WB_LOCK:
+        return _send_followups_locked(summary)
+
+
+def _send_followups_locked(summary: dict) -> dict:
     wb = load_workbook(EXCEL_FILE)
     ws = wb[S_COLD]
 
@@ -75,6 +80,6 @@ def send_followups() -> dict:
         else:
             summary["skipped"] += 1
 
-    wb.save(EXCEL_FILE)
+    save_workbook(wb)
     logger.info("[Follow-up] %s", summary)
     return summary

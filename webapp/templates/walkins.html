@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import chip, empty %}
+{% from "_macros.html" import chip, empty, delete_form %}
 {% block content %}
 <div class="section">
   {% if walkins %}
@@ -19,6 +19,7 @@
       </div>
       <div class="job__actions">
         {% if j["Job URL"] %}<a class="btn btn--primary" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Details ↗</a>{% endif %}
+        {{ delete_form("/walkins/delete", {"url": j["Job URL"]}, "Delete this walk-in?") }}
       </div>
     </div>
     {% endfor %}

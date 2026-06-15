@@ -24,12 +24,18 @@ Usage:
     python main.py --report              # generate + (try to) send weekly report
 """
 import argparse
+import json
+import os
 import time
 from datetime import datetime
+from pathlib import Path
 
 import schedule
 
-from config.config import SCHEDULE_TIMES, WEEKLY_REPORT_DAY, WEEKLY_REPORT_TIME
+from config.config import (
+    ADAPTIVE_LOOKBACK, DATA_DIR, FRESH_MAX_HOURS, SCHEDULE_TIMES,
+    WEEKLY_REPORT_DAY, WEEKLY_REPORT_TIME,
+)
 from mailers import cold_mailer
 from mailers.followup_mailer import send_followups
 from sources.registry import available_keys, get_sources
@@ -37,6 +43,34 @@ from tracker.excel_tracker import init_excel, refresh_dashboard
 from utils.logger import get_logger
 
 logger = get_logger("main")
+
+_LAST_RUN_FILE = Path(DATA_DIR) / "last_run.json"
+
+
+def _apply_adaptive_lookback() -> None:
+    """Set GMAIL_LOOKBACK_HOURS to the time since the last run (capped just above
+    the freshness window) so each run reads exactly what's new since last time."""
+    if not ADAPTIVE_LOOKBACK:
+        return
+    hours = FRESH_MAX_HOURS or 24  # first-ever run: cover the freshness window
+    if _LAST_RUN_FILE.exists():
+        try:
+            last = datetime.fromisoformat(json.loads(_LAST_RUN_FILE.read_text())["at"])
+            hours = (datetime.now() - last).total_seconds() / 3600
+        except Exception:
+            pass
+    cap = (FRESH_MAX_HOURS + 2) if FRESH_MAX_HOURS else 72
+    lookback = min(max(int(hours) + 1, 1), cap)
+    os.environ["GMAIL_LOOKBACK_HOURS"] = str(lookback)
+    logger.info("Adaptive Gmail lookback: %dh (time since last run)", lookback)
+
+
+def _mark_run() -> None:
+    try:
+        _LAST_RUN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _LAST_RUN_FILE.write_text(json.dumps({"at": datetime.now().isoformat()}))
+    except Exception as exc:
+        logger.warning("Could not record last-run time: %s", exc)
 
 
 def run_all(source: str = "all") -> dict:
@@ -48,9 +82,11 @@ def run_all(source: str = "all") -> dict:
     }
     try:
         init_excel()
+        _apply_adaptive_lookback()
         fup = send_followups()
         logger.info("Follow-ups: %s", fup)
 
+        alerts: list[dict] = []
         for src in get_sources(only=source, mailer=cold_mailer):
             try:
                 s = src.run()
@@ -60,11 +96,14 @@ def run_all(source: str = "all") -> dict:
                 summary["cold_mails"] += s.get("cold_mails", 0)
                 summary["skipped"] += s.get("skipped", 0)
                 summary["errors"] += s.get("errors", 0)
+                alerts.extend(getattr(src, "alerts", []))
             except Exception as exc:  # one source failing never stops the rest
                 summary["errors"] += 1
                 logger.error("Source '%s' crashed: %s", getattr(src, "name", "?"), exc, exc_info=True)
 
         refresh_dashboard()
+        _mark_run()
+        _maybe_alert_fresh(alerts)
     except Exception as exc:
         summary["errors"] += 1
         logger.error("run_all failed: %s", exc, exc_info=True)
@@ -82,6 +121,17 @@ def _maybe_notify(summary: dict) -> None:
         send_run_summary(summary)
     except Exception as exc:
         logger.info("Telegram notify skipped: %s", exc)
+
+
+def _maybe_alert_fresh(alerts: list) -> None:
+    """Best-effort instant Telegram alert for fresh high-match jobs this run."""
+    if not alerts:
+        return
+    try:
+        from telegram_bot.notifier import send_job_alerts
+        send_job_alerts(alerts)
+    except Exception as exc:
+        logger.info("Telegram job alert skipped: %s", exc)
 
 
 def run_scheduled() -> None:

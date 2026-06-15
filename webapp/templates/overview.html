@@ -50,7 +50,8 @@
     {% if top_manual %}<a class="link" href="/manual">View all {{ counts.manual_pending }} →</a>{% endif %}
   </div>
   {% if top_manual %}
-    <div class="stack">{% for j in top_manual %}{{ job_card(j) }}{% endfor %}</div>
+    <div class="rank-note">🎯 Best resume matches first.</div>
+    <div class="stack">{% for j in top_manual %}{{ job_card(j, loop.index) }}{% endfor %}</div>
   {% else %}
     <div class="card">{{ empty("📭", "Nothing to apply to yet", "Hit “Run now” to fetch fresh jobs from your sources.") }}</div>
   {% endif %}

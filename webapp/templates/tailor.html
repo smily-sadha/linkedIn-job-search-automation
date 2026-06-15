@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip, empty %}
+{% block content %}
+<div class="section">
+  <a class="link" href="/manual" style="color:var(--primary-600);font-weight:600">← Back to jobs</a>
+
+  {% if job %}
+  <div class="card" style="padding:16px 18px;margin:12px 0">
+    <div class="job__title">{{ job["Job Title"] }}</div>
+    <div class="job__company">{{ job["Company Name"] }}</div>
+    {% if job["Job URL"] %}<a class="btn btn--primary btn--sm" style="margin-top:10px"
+        href="{{ job['Job URL'] }}" target="_blank" rel="noopener">Open job ↗</a>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if note %}
+    <div class="card">{{ empty("✨", "Tailoring unavailable", note) }}</div>
+  {% elif result %}
+    <div class="tailor-note">⚠️ AI-generated from your skills + this role. Review and edit before sending — never claim experience you don't have.</div>
+
+    <div class="card tcard">
+      <div class="tcard__head"><h3>Resume summary</h3>
+        <button class="btn btn--ghost btn--sm" onclick="copyEl('t-summary')">Copy</button></div>
+      <div id="t-summary" class="tcard__body">{{ result.summary }}</div>
+    </div>
+
+    {% if result.highlight %}
+    <div class="card tcard">
+      <div class="tcard__head"><h3>What to emphasise</h3></div>
+      <div class="tcard__body">{{ result.highlight }}</div>
+    </div>
+    {% endif %}
+
+    {% if result.keywords %}
+    <div class="card tcard">
+      <div class="tcard__head"><h3>ATS keywords to include</h3></div>
+      <div class="tcard__body">
+        <div class="job__chips">{% for k in result.keywords %}{{ chip(k, "info") }}{% endfor %}</div>
+        <div style="margin-top:8px;font-size:12.5px;color:var(--muted)">Make sure these appear (truthfully) in your resume so it clears keyword filters.</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card tcard">
+      <div class="tcard__head"><h3>Cover letter</h3>
+        <button class="btn btn--ghost btn--sm" onclick="copyEl('t-cover')">Copy</button></div>
+      <div id="t-cover" class="tcard__body" style="white-space:pre-wrap">{{ result.cover_letter }}</div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  function copyEl(id) {
+    const t = document.getElementById(id).innerText;
+    navigator.clipboard.writeText(t).then(() => {
+      const b = event.target; const o = b.textContent;
+      b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = o, 1400);
+    });
+  }
+</script>
+{% endblock %}

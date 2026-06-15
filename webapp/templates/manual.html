@@ -2,8 +2,33 @@
 {% from "_macros.html" import job_card, empty %}
 {% block content %}
 <div class="section">
+  <div class="toolbar">
+    <div class="seg">
+      <a class="seg__btn {{ '' if new_only else 'active' }}" href="/manual">All
+        {% if counts.manual_pending %}<span class="seg__n">{{ counts.manual_pending }}</span>{% endif %}</a>
+      <a class="seg__btn {{ 'active' if new_only else '' }}" href="/manual?new=1">🆕 New today
+        {% if counts.manual_new %}<span class="seg__n">{{ counts.manual_new }}</span>{% endif %}</a>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <form method="post" action="/manual/verify">
+        <input type="hidden" name="origin" value="/manual{{ '?new=1' if new_only }}">
+        <button class="btn btn--soft btn--sm" type="submit" title="Fetch each posting to check if it's really still open">🔄 Verify open/closed</button>
+      </form>
+      <form method="post" action="/manual/clear-closed" onsubmit="return confirm('Remove all closed jobs from your list?')">
+        <input type="hidden" name="origin" value="/manual{{ '?new=1' if new_only }}">
+        <button class="btn btn--ghost btn--sm" type="submit">🧹 Clear closed</button>
+      </form>
+      <form method="post" action="/manual/clear-all" onsubmit="return confirm('Clear ALL {{ counts.manual_pending }} jobs from the list? This empties your to-apply list.')">
+        <input type="hidden" name="origin" value="/manual{{ '?new=1' if new_only }}">
+        <button class="btn btn--ghost btn--sm" type="submit">🗑️ Clear all</button>
+      </form>
+    </div>
+  </div>
   {% if manual %}
-    <div class="stack">{% for j in manual %}{{ job_card(j) }}{% endfor %}</div>
+    <div class="rank-note">🎯 Verified-open roles first, ranked by resume match. Click <strong>🔄 Verify open/closed</strong> to fetch each posting's real status — closed ones sink to the bottom.</div>
+    <div class="stack">{% for j in manual %}{{ job_card(j, loop.index) }}{% endfor %}</div>
+  {% elif new_only %}
+    <div class="card">{{ empty("🌙", "No new jobs today yet", "Hit “Run now” to fetch today's postings, or check the All tab for earlier jobs.") }}</div>
   {% else %}
     <div class="card">{{ empty("📭", "No jobs waiting", "Run the pipeline to pull fresh, high-fit roles into this list.") }}</div>
   {% endif %}

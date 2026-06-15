@@ -12,31 +12,78 @@
   </span>
 {% endmacro %}
 
-{# A manual-apply / walk-in job card #}
-{% macro job_card(j) %}
-  <article class="card job">
+{# How well your resume matches the role (fit score, not a hiring probability). #}
+{% macro prob_badge(p) %}
+  <div class="prob prob--{{ p.tier }}"
+       title="Resume match — how well you fit this role (fit {{ p.score }}/10)">
+    <div class="prob__top"><span class="prob__pct">{{ p.pct }}%</span>
+      <span class="prob__label">{{ p.label }}</span></div>
+    <span class="prob__bar"><span class="prob__fill" style="width:{{ p.pct }}%"></span></span>
+  </div>
+{% endmacro %}
+
+{# REAL open/closed status, verified by fetching the posting URL. #}
+{% macro live_chip(live) %}
+  {% set s = (live.status if live else 'unknown') %}
+  <span class="wstat wstat--{{ 'closed' if s == 'closed' else ('open' if s == 'open' else 'unknown') }}"
+        title="{{ ('Verified ' ~ live.checked) if (live and live.checked) else 'Not verified yet — click Verify' }}">
+    {%- if s == 'closed' %}⛔ Closed — no longer accepting
+    {%- elif s == 'open' %}🟢 Open{% if live and live.checked %} · verified{% endif %}
+    {%- else %}🕓 Not verified{% endif -%}
+  </span>
+{% endmacro %}
+
+{# A manual-apply / walk-in job card. `rank` (1-based) shows ordering position. #}
+{% macro job_card(j, rank=0) %}
+  {% set closed = j.live and j.live.status == 'closed' %}
+  <article class="card job {{ 'job--closed' if closed }}">
+    {% if rank %}<div class="job__rank">{{ rank }}</div>{% endif %}
     <div class="job__main">
       <div class="job__head">
+        {% if j.is_new %}<span class="newbadge">🆕 New today</span>{% endif %}
         <h3 class="job__title">{{ j["Job Title"] or "Untitled role" }}</h3>
       </div>
       <div class="job__company">{{ j["Company Name"] or "Unknown company" }}</div>
       <div class="job__chips">
+        {% if j.live %}{{ live_chip(j.live) }}{% endif %}
+        {% if j["Posted"] %}{{ chip("Posted " ~ j["Posted"]) }}{% endif %}
         {% if j["Location"] %}{{ chip("📍 " ~ j["Location"]) }}{% endif %}
         {% if j["Source"] %}{{ chip(j["Source"], "info") }}{% endif %}
-        {% if j["Date Found"] %}{{ chip("Found " ~ j["Date Found"]) }}{% endif %}
+        {% if not j["Posted"] and j["Date Found"] %}{{ chip("Found " ~ j["Date Found"]) }}{% endif %}
         {% if j["Reason"] %}{{ chip(j["Reason"], "muted") }}{% endif %}
       </div>
+      {% if j["Match Reason"] %}<div class="job__why">💡 {{ j["Match Reason"] }}</div>{% endif %}
     </div>
+    {% if j.prob %}{{ prob_badge(j.prob) }}{% endif %}
     <div class="job__actions">
       {% if j["Job URL"] %}
-        <a class="btn btn--primary" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Apply ↗</a>
+        <a class="btn btn--soft btn--sm" href="/tailor?url={{ j['Job URL'] | urlencode }}" title="LLM-tailor your resume & cover letter for this role">✨ Tailor</a>
+        <a class="btn {{ 'btn--ghost' if closed else 'btn--primary' }}" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">{{ 'Check ↗' if closed else 'Apply ↗' }}</a>
       {% endif %}
       <form method="post" action="/manual/mark-applied">
         <input type="hidden" name="url" value="{{ j['Job URL'] }}">
         <button class="btn btn--ghost" type="submit">Mark applied</button>
       </form>
+      {{ delete_form("/manual/delete", {"url": j["Job URL"]}, "Delete this job from your list?") }}
     </div>
   </article>
+{% endmacro %}
+
+{# Colour-coded application-status pill. #}
+{% macro status_chip(status) %}
+  {% set s = (status or "Applied") | string %}
+  {% set kind = "success" if "Offer" in s
+                else ("warn" if ("Interview" in s or "Shortlisted" in s)
+                else ("danger" if s in ("Rejected", "Ghosted") else "info")) %}
+  {{ chip(s, kind) }}
+{% endmacro %}
+
+{# A small ✕ delete button. `fields` is a dict of hidden form inputs. #}
+{% macro delete_form(action, fields, confirm="Delete this permanently?") %}
+  <form method="post" action="{{ action }}" onsubmit="return confirm('{{ confirm }}')">
+    {% for k, v in fields.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <button class="btn btn--ghost btn--sm btn--del" type="submit" title="Delete">✕</button>
+  </form>
 {% endmacro %}
 
 {% macro empty(icon, head, sub="") %}

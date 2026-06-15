@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import score_badge, empty %}
+{% from "_macros.html" import score_badge, prob_badge, empty, delete_form %}
 {% block content %}
 <div class="section">
   {% if applied %}
@@ -7,7 +7,7 @@
     <table class="table">
       <thead>
         <tr>
-          <th>Company / Role</th><th>Source</th><th>Fit</th>
+          <th>Company / Role</th><th>Source</th><th>Fit</th><th>Match</th>
           <th>Applied</th><th>Status</th><th></th>
         </tr>
       </thead>
@@ -20,6 +20,7 @@
           </td>
           <td style="color:var(--text-2)">{{ j["Source"] or "—" }}</td>
           <td>{{ score_badge(j["AI Score"]) }}</td>
+          <td style="min-width:130px">{{ prob_badge(j.prob) }}</td>
           <td style="color:var(--text-2)">{{ j["Date Applied"] or "—" }}</td>
           <td>
             <form method="post" action="/applied/status">
@@ -31,8 +32,11 @@
               </select>
             </form>
           </td>
-          <td style="text-align:right">
-            {% if j["Job URL"] %}<a class="btn btn--ghost btn--sm" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Open ↗</a>{% endif %}
+          <td>
+            <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">
+              {% if j["Job URL"] %}<a class="btn btn--ghost btn--sm" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Open ↗</a>{% endif %}
+              {{ delete_form("/applied/delete", {"url": j["Job URL"]}, "Delete this application from your records?") }}
+            </div>
           </td>
         </tr>
         {% endfor %}
