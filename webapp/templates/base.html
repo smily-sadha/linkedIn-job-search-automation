@@ -81,6 +81,8 @@
     .topbar h1 { font-size: 19px; letter-spacing: -.3px; }
     .topbar .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
     .runbar { display: flex; align-items: center; gap: 12px; }
+    .runform { display: flex; align-items: center; gap: 8px; }
+    .runform select { padding: 8px 10px; }
     .runstate { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-2); }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
     .dot.live { background: var(--success); box-shadow: 0 0 0 0 rgba(4,120,87,.5);
@@ -210,6 +212,10 @@
     .seg__n { font-size: 11.5px; font-weight: 700; background: var(--surface-2);
               border-radius: 999px; padding: 0 7px; }
     .seg__btn.active .seg__n { background: #fff; }
+    .seg--wrap { display: flex; flex-wrap: wrap; }
+    .platform-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .platform-bar__label { font-size: 11px; font-weight: 700; letter-spacing: .5px;
+                           text-transform: uppercase; color: var(--muted); }
 
     .btn { display: inline-flex; align-items: center; gap: 6px; font: inherit;
            font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-sm);
@@ -311,8 +317,11 @@
       <div class="runbar">
         <span class="runstate"><span class="dot {{ 'live' if running }}" id="runDot"></span>
           <span id="runText">{{ "Running…" if running else "Idle" }}</span></span>
-        <form method="post" action="/run">
+        <form method="post" action="/run" class="runform">
           <input type="hidden" name="origin" value="{{ request.url.path }}">
+          <select name="source" title="Which source to fetch from" {{ 'disabled' if running }}>
+            {% for s in sources %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
+          </select>
           <button class="btn btn--primary" type="submit" {{ 'disabled' if running }}>▶ Run now</button>
         </form>
       </div>

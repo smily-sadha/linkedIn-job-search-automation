@@ -33,6 +33,23 @@ _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 app = FastAPI(title="Job-Hunt Assistant")
 
+# Friendly labels for the "Run now" source picker. Keys match registry source
+# names; "all" runs every enabled source.
+_SOURCE_LABELS = {
+    "all": "All sources", "linkedin": "LinkedIn", "naukri": "Naukri",
+    "indeed": "Indeed", "remotive": "Remotive", "remoteok": "RemoteOK",
+    "gmail": "Gmail alerts", "rss": "RSS feeds", "walkin_search": "Walk-in search",
+}
+
+
+def _source_options() -> list[dict]:
+    """[{key,label}] for the Run-now dropdown: 'All' plus each enabled source."""
+    from config.config import SOURCES
+    from sources.registry import available_keys
+    enabled = [k for k in available_keys() if SOURCES.get(k, {}).get("enabled")]
+    keys = ["all"] + enabled
+    return [{"key": k, "label": _SOURCE_LABELS.get(k, k.title())} for k in keys]
+
 
 @app.on_event("startup")
 def _start_scheduler() -> None:
@@ -52,6 +69,7 @@ def _ctx(request: Request, active: str, title: str, subtitle: str = "",
         "counts": repo.counts(),
         "running": runner.is_running(),
         "last_run": runner.last_summary(),
+        "sources": _source_options(),
         "msg": msg,
         "err": err,
     }
@@ -81,12 +99,30 @@ def overview(request: Request, msg: str | None = None, err: str | None = None):
 
 @app.get("/manual", response_class=HTMLResponse)
 def manual_page(request: Request, msg: str | None = None, err: str | None = None,
-                new: str | None = None):
+                new: str | None = None, fresh: str | None = None,
+                source: str | None = None):
     new_only = new in ("1", "true", "yes")
+    fresh_only = fresh in ("1", "true", "yes")
+    jobs = repo.manual_jobs(new_only=new_only, fresh_only=fresh_only)
+    # Per-platform tabs are computed before the source filter so each tab keeps
+    # its full count regardless of which one is currently selected.
+    tabs = repo.source_tabs(jobs)
+    source = (source or "").strip().lower() or None
+    if source:
+        jobs = [j for j in jobs if repo.source_key(j) == source]
+    qs = []
+    if fresh_only:
+        qs.append("fresh=1")
+    if new_only:
+        qs.append("new=1")
+    if source:
+        qs.append(f"source={source}")
+    origin = "/manual" + ("?" + "&".join(qs) if qs else "")
     return _render("manual.html", _ctx(
         request, "manual", "Manual Apply Needed",
         "High-fit jobs to review and submit", msg=msg, err=err,
-        manual=repo.manual_jobs(new_only=new_only), new_only=new_only,
+        manual=jobs, new_only=new_only, fresh_only=fresh_only,
+        source_tabs=tabs, source=source, origin=origin,
     ))
 
 

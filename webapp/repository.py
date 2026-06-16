@@ -7,6 +7,7 @@ writes reuse the same openpyxl path the rest of the app uses.
 Note (Windows): openpyxl cannot write while the workbook is open in Excel.
 Write helpers raise WorkbookLocked so the UI can show a friendly message.
 """
+import re
 from datetime import date, datetime
 
 from openpyxl import load_workbook
@@ -109,6 +110,72 @@ def application_window(posted, date_found) -> dict:
     return {"tier": "open", "label": f"~{days_left}d left", "days_left": days_left, "open": True}
 
 
+# ── Posting-freshness model ──────────────────────────────────────────────────
+# Sources hand us the "Posted" value in two shapes: a real date (YYYY-MM-DD from
+# the API sources) or relative text ("3 days ago", "30+ days ago", "5 hours ago"
+# from LinkedIn Gmail alerts). We normalise both into an age-in-days so the UI
+# can carve out a "Fresh" space for just-posted roles instead of one flat list.
+_FRESH_MAX_DAYS = 3  # posted within this many days counts as "fresh"
+_REL_AGE_RE = re.compile(r"(\d+)\s*\+?\s*(hour|day|week|month)", re.I)
+
+
+def _posted_age_days(posted, date_found) -> "int | None":
+    """Best-effort age in days since a job was posted.
+
+    Parses real dates and the relative text some sources give ("today",
+    "yesterday", "3 days ago", "30+ days ago", "5 hours ago"). Falls back to
+    Date Found when Posted is missing/unparseable. None when truly unknown.
+    """
+    d = _parse_date(posted)
+    if d is not None:
+        return max(0, (date.today() - d).days)
+    text = str(posted or "").strip().lower()
+    if text:
+        if any(w in text for w in ("just now", "today", "hour", "minute")):
+            return 0
+        if "yesterday" in text:
+            return 1
+        m = _REL_AGE_RE.search(text)
+        if m:
+            n, unit = int(m.group(1)), m.group(2).lower()
+            days = {"hour": 0, "day": n, "week": n * 7, "month": n * 30}[unit]
+            # "30+ days ago" means at least n — push past the bucket edge.
+            return days + 1 if "+" in text else days
+    d = _parse_date(date_found)
+    if d is not None:
+        return max(0, (date.today() - d).days)
+    return None
+
+
+def freshness(posted, date_found) -> dict:
+    """Return {tier, label, fresh, days} describing how recently a role posted.
+
+    tier is one of fresh | recent | old | unknown. `fresh` is True for postings
+    within _FRESH_MAX_DAYS so the UI can filter the dedicated Fresh space.
+    """
+    days = _posted_age_days(posted, date_found)
+    if days is None:
+        return {"tier": "unknown", "label": "Date unknown", "fresh": False, "days": None}
+    # Say "Posted" only when we actually know the posting age; otherwise we're
+    # reporting when we first found the role, so don't overstate it.
+    verb = "Posted" if _posted_age_days(posted, None) is not None else "Found"
+    if days <= 0:
+        label = f"{verb} today"
+    elif days == 1:
+        label = f"{verb} yesterday"
+    elif days <= 30:
+        label = f"{verb} {days} days ago"
+    else:
+        label = f"{verb} 30+ days ago"
+    if days <= _FRESH_MAX_DAYS:
+        tier = "fresh"
+    elif days <= 7:
+        tier = "recent"
+    else:
+        tier = "old"
+    return {"tier": tier, "label": label, "fresh": tier == "fresh", "days": days}
+
+
 _STATUS_RANK = {"open": 0, "unknown": 1, "closed": 2}
 
 
@@ -120,9 +187,50 @@ def _with_probability(rows: list[dict]) -> list[dict]:
     for r in rows:
         r["prob"] = selection_probability(r.get("AI Score"))
         r["window"] = application_window(r.get("Posted"), r.get("Date Found"))
+        r["fresh"] = freshness(r.get("Posted"), r.get("Date Found"))
         r["live"] = get_status(r.get("Job URL", ""))
     rows.sort(key=lambda r: (_STATUS_RANK.get(r["live"]["status"], 1), -r["prob"]["pct"]))
     return rows
+
+
+# ── Platform / source grouping ───────────────────────────────────────────────
+# Maps a stored Source value to a friendly platform label for the Manual page's
+# per-platform tabs. Direct scrapers and Gmail-alert jobs both store a lowercase
+# key here (linkedin / naukri / indeed / …), so grouping is uniform.
+_SOURCE_LABELS = {
+    "linkedin": "LinkedIn", "naukri": "Naukri", "indeed": "Indeed",
+    "remotive": "Remotive", "remoteok": "RemoteOK", "rss": "RSS",
+    "gmail": "Email", "email": "Email",
+}
+
+
+def source_key(row: dict) -> str:
+    """Normalised lowercase source key for a job row ('' -> 'other')."""
+    return str(row.get("Source") or "").strip().lower() or "other"
+
+
+def source_label(key: str) -> str:
+    """Friendly platform label for a source key."""
+    return _SOURCE_LABELS.get(key, key.title())
+
+
+# Job-board platforms always shown as their own space, even at 0 jobs, so the
+# separation is visible before/while jobs arrive from each.
+ALWAYS_SHOW = ("linkedin", "naukri", "indeed")
+
+
+def source_tabs(rows: list[dict], always: tuple = ALWAYS_SHOW) -> list[dict]:
+    """[{key,label,count}] per platform: every platform present in `rows`, plus
+    the `always` job boards even when they have 0 jobs. Most jobs first."""
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[source_key(r)] = counts.get(source_key(r), 0) + 1
+    for k in always:
+        counts.setdefault(k, 0)
+    tabs = [{"key": k, "label": source_label(k), "count": n}
+            for k, n in counts.items()]
+    tabs.sort(key=lambda t: (-t["count"], t["label"]))
+    return tabs
 
 
 def _is_new(row: dict) -> bool:
@@ -136,20 +244,28 @@ def _is_new(row: dict) -> bool:
 
 
 # ── Reads ─────────────────────────────────────────────────────────────────────
-def manual_jobs(include_done: bool = False, new_only: bool = False) -> list[dict]:
+def manual_jobs(include_done: bool = False, new_only: bool = False,
+                fresh_only: bool = False) -> list[dict]:
     """Jobs in 'Manual Apply Needed', ranked by selection probability.
 
     By default only those still Pending. Highest-chance roles come first so the
-    UI can present the best bets at the top. `new_only` keeps just today's jobs.
+    UI can present the best bets at the top. `new_only` keeps just today's jobs;
+    `fresh_only` keeps just recently-posted roles (within _FRESH_MAX_DAYS),
+    sorted freshest-first so newly-posted jobs are easy to spot.
     """
     rows = _rows_as_dicts(S_MANUAL)
     if not include_done:
         rows = [r for r in rows if str(r.get("Status", "")).strip().lower() == "pending"]
     for r in rows:
         r["is_new"] = _is_new(r)
+    rows = _with_probability(rows)
     if new_only:
         rows = [r for r in rows if r["is_new"]]
-    return _with_probability(rows)
+    if fresh_only:
+        rows = [r for r in rows if r["fresh"]["fresh"]]
+        rows.sort(key=lambda r: (r["fresh"]["days"] if r["fresh"]["days"] is not None else 999,
+                                 -r["prob"]["pct"]))
+    return rows
 
 
 def walkins() -> list[dict]:
@@ -262,6 +378,7 @@ def counts() -> dict:
     return {
         "manual_pending": len(pending),
         "manual_new": sum(1 for j in pending if j.get("is_new")),
+        "manual_fresh": sum(1 for j in pending if j.get("fresh", {}).get("fresh")),
         "walkins": len(walkins()),
         "applied": len(applied_jobs()),
         "cold_pending": len(pending_cold_mails()),

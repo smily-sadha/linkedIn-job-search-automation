@@ -1,15 +1,23 @@
 """Maps source keys -> source classes, honouring the enabled flags in config."""
 from config.config import SOURCES
 from sources.gmail_source import GmailSource
+from sources.indeed_source import IndeedSource
+from sources.linkedin_source import LinkedInSource
+from sources.naukri_source import NaukriSource
 from sources.remoteok_source import RemoteOKSource
 from sources.remotive_source import RemotiveSource
 from sources.rss_source import RSSSource
+from sources.walkin_search_source import WalkinSearchSource
 
 _CLASSES = {
     "remotive": RemotiveSource,
     "remoteok": RemoteOKSource,
     "rss": RSSSource,
     "gmail": GmailSource,
+    "linkedin": LinkedInSource,
+    "naukri": NaukriSource,
+    "indeed": IndeedSource,
+    "walkin_search": WalkinSearchSource,
 }
 
 

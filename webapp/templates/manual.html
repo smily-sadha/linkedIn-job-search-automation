@@ -1,32 +1,63 @@
 {% extends "base.html" %}
 {% from "_macros.html" import job_card, empty %}
 {% block content %}
+{# Suffix to keep the selected platform when switching freshness tabs, and the
+   freshness prefix to keep the freshness view when switching platform tabs. #}
+{% set src_suffix = ('&source=' ~ source) if source else '' %}
+{% set fresh_q = 'fresh=1' if fresh_only else ('new=1' if new_only else '') %}
 <div class="section">
+  {# ── Per-platform spaces (primary navigation) ─────────────────────────── #}
+  {% if source_tabs %}
+  <div class="platform-bar">
+    <span class="platform-bar__label">Platform</span>
+    <div class="seg seg--wrap">
+      <a class="seg__btn {{ 'active' if not source else '' }}" href="/manual{{ ('?' ~ fresh_q) if fresh_q else '' }}">All platforms
+        {% if counts.manual_pending %}<span class="seg__n">{{ counts.manual_pending }}</span>{% endif %}</a>
+      {% for t in source_tabs %}
+        <a class="seg__btn {{ 'active' if source == t.key else '' }}"
+           href="/manual?{{ (fresh_q ~ '&') if fresh_q else '' }}source={{ t.key }}">{{ t.label }}
+          <span class="seg__n">{{ t.count }}</span></a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="toolbar">
     <div class="seg">
-      <a class="seg__btn {{ '' if new_only else 'active' }}" href="/manual">All
-        {% if counts.manual_pending %}<span class="seg__n">{{ counts.manual_pending }}</span>{% endif %}</a>
-      <a class="seg__btn {{ 'active' if new_only else '' }}" href="/manual?new=1">🆕 New today
-        {% if counts.manual_new %}<span class="seg__n">{{ counts.manual_new }}</span>{% endif %}</a>
+      <a class="seg__btn {{ 'active' if not new_only and not fresh_only else '' }}" href="/manual{{ ('?source=' ~ source) if source else '' }}">All
+        {% if not source and counts.manual_pending %}<span class="seg__n">{{ counts.manual_pending }}</span>{% endif %}</a>
+      <a class="seg__btn {{ 'active' if fresh_only else '' }}" href="/manual?fresh=1{{ src_suffix }}">✨ Fresh
+        {% if not source and counts.manual_fresh %}<span class="seg__n">{{ counts.manual_fresh }}</span>{% endif %}</a>
+      <a class="seg__btn {{ 'active' if new_only else '' }}" href="/manual?new=1{{ src_suffix }}">🆕 New today
+        {% if not source and counts.manual_new %}<span class="seg__n">{{ counts.manual_new }}</span>{% endif %}</a>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <form method="post" action="/manual/verify">
-        <input type="hidden" name="origin" value="/manual{{ '?new=1' if new_only }}">
+        <input type="hidden" name="origin" value="{{ origin }}">
         <button class="btn btn--soft btn--sm" type="submit" title="Fetch each posting to check if it's really still open">🔄 Verify open/closed</button>
       </form>
       <form method="post" action="/manual/clear-closed" onsubmit="return confirm('Remove all closed jobs from your list?')">
-        <input type="hidden" name="origin" value="/manual{{ '?new=1' if new_only }}">
+        <input type="hidden" name="origin" value="{{ origin }}">
         <button class="btn btn--ghost btn--sm" type="submit">🧹 Clear closed</button>
       </form>
       <form method="post" action="/manual/clear-all" onsubmit="return confirm('Clear ALL {{ counts.manual_pending }} jobs from the list? This empties your to-apply list.')">
-        <input type="hidden" name="origin" value="/manual{{ '?new=1' if new_only }}">
+        <input type="hidden" name="origin" value="{{ origin }}">
         <button class="btn btn--ghost btn--sm" type="submit">🗑️ Clear all</button>
       </form>
     </div>
   </div>
+
   {% if manual %}
-    <div class="rank-note">🎯 Verified-open roles first, ranked by resume match. Click <strong>🔄 Verify open/closed</strong> to fetch each posting's real status — closed ones sink to the bottom.</div>
+    {% if fresh_only %}
+      <div class="rank-note">✨ Freshly-posted roles only (last 3 days), newest first. Apply here before they fill up.</div>
+    {% else %}
+      <div class="rank-note">🎯 Verified-open roles first, ranked by resume match. Click <strong>🔄 Verify open/closed</strong> to fetch each posting's real status — closed ones sink to the bottom.</div>
+    {% endif %}
     <div class="stack">{% for j in manual %}{{ job_card(j, loop.index) }}{% endfor %}</div>
+  {% elif source %}
+    <div class="card">{{ empty("🔍", "No jobs from this platform", "Nothing here yet for this source. Try “All platforms”, or fetch this source from the Run-now picker.") }}</div>
+  {% elif fresh_only %}
+    <div class="card">{{ empty("✨", "No fresh jobs right now", "Nothing posted in the last 3 days. Hit “Run now” to fetch, or check the All tab for earlier roles.") }}</div>
   {% elif new_only %}
     <div class="card">{{ empty("🌙", "No new jobs today yet", "Hit “Run now” to fetch today's postings, or check the All tab for earlier jobs.") }}</div>
   {% else %}

@@ -168,6 +168,11 @@ class GmailSource(BaseSource):
                     "Naukri" if "naukri" in sender else
                     "Indeed" if "indeed" in sender else "Email")
         linkedin = platform == "LinkedIn"
+        # Persist the real platform as the job's source so the UI can group by
+        # platform (LinkedIn / Naukri / Indeed), not lump all alert mail as
+        # "gmail". Rate-limiting still keys on self.name internally, unaffected.
+        source_key = {"LinkedIn": "linkedin", "Naukri": "naukri",
+                      "Indeed": "indeed"}.get(platform, "email")
 
         # LinkedIn renders several <a> per job (logo / title-only / rich block).
         # Group by job and keep the richest text so company+location survive.
@@ -202,7 +207,7 @@ class GmailSource(BaseSource):
                 "location": location,
                 "url": entry["url"],
                 "description": f"{title} {company} {location}".strip(),
-                "source": self.name,
+                "source": source_key,
                 "platform": platform,
             })
         return jobs

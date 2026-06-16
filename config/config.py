@@ -89,6 +89,26 @@ GROQ_API_KEY = _env("GROQ_API_KEY")
 GROQ_MODEL = _env("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_API_URL = _env("GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions")
 
+# ── Google Programmable Search (for the walk-in drive hunter) ────────────────
+# Official Custom Search JSON API: free 100 queries/day, ToS-safe, reliable.
+# Create both at https://programmablesearchengine.google.com (engine -> cx id)
+# and https://console.cloud.google.com (enable "Custom Search API" -> key).
+# Set GOOGLE_API_KEY + GOOGLE_CSE_ID in .env to switch the walkin_search source on.
+GOOGLE_API_KEY = _env("GOOGLE_API_KEY")
+GOOGLE_CSE_ID = _env("GOOGLE_CSE_ID")
+
+# ── Scraping-API proxy (for sites behind hard anti-bot, e.g. Naukri/Akamai) ──
+# Routes a fetch through a service that solves the anti-bot + uses residential
+# IPs, then returns the rendered HTML. Works with ScraperAPI (default) and any
+# compatible "?api_key=&url=&render=" proxy (ZenRows/ScrapingBee via SCRAPER_API_URL).
+# Free trials give ~1000 calls/month. Set SCRAPER_API_KEY in .env to switch on.
+SCRAPER_PROXY = {
+    "api_url": _env("SCRAPER_API_URL", "https://api.scraperapi.com/"),
+    "api_key": _env("SCRAPER_API_KEY"),
+    "country": _env("SCRAPER_COUNTRY", "in"),   # residential IP country
+    "render": _bool("SCRAPER_RENDER", True),     # run JS (needed to beat Akamai)
+}
+
 # ── Job sources (ToS-friendly: public APIs + RSS feeds only) ────────────────
 # Each source is queried programmatically through documented endpoints.
 # No browser automation, no anti-bot evasion, no logging in as you.
@@ -128,6 +148,44 @@ SOURCES = {
             "donotreply@match.indeed.com",
             "invitetoapply@indeed.com",
         ],
+    },
+    # LinkedIn — DIRECT scrape via the public, logged-out guest job-search
+    # endpoint. No login/cookies, so there's no account to ban; the only risk is
+    # LinkedIn rate-limiting your IP (handled gracefully). NOTE: scraping is
+    # against LinkedIn's Terms of Service even via this public endpoint — this is
+    # why it's a deliberate opt-in. The Gmail source above is the ToS-safe path.
+    "linkedin": {
+        "enabled": True,
+        "location": JOB_LOCATION,
+        "pages": 2,                          # 25 jobs/page from the guest endpoint
+        "posted_within_hours": FRESH_MAX_HOURS,  # 0 = no time filter (maps to f_TPR)
+    },
+    # Naukri — DIRECT via its internal search JSON API. EXPERIMENTAL: undocumented
+    # endpoint, against ToS, can change shape or rate-limit your IP. Fails soft.
+    "naukri": {
+        "enabled": True,
+        "pages": 2,                          # 20 jobs/page
+    },
+    # Indeed — DIRECT by parsing the public results page. EXPERIMENTAL and the
+    # most fragile: Indeed's anti-bot (Cloudflare/captcha) often returns 0 jobs,
+    # especially from datacenter/VPN IPs. Fails soft; treat hits as a bonus.
+    "indeed": {
+        "enabled": True,
+        "domain": "in.indeed.com",           # country site (in./www./uk. etc.)
+        "location": JOB_LOCATION,
+        "pages": 2,                          # 10 jobs/page
+    },
+    # Walk-in drive hunter — searches Google (official Custom Search API) for
+    # walk-in interview drives across the whole web, then extracts date/time/
+    # venue into the Walk-In Drives sheet. Auto-on only when the Google keys are
+    # set; budget-aware (a few queries per run to stay under the free 100/day).
+    "walkin_search": {
+        "enabled": bool(GOOGLE_API_KEY and GOOGLE_CSE_ID),
+        "location": JOB_LOCATION,
+        "max_queries": 4,                    # CSE calls per run (×8 runs/day ≈ 32)
+        "results_per_query": 10,             # CSE returns up to 10 per call
+        "fetch_pages": True,                 # fetch landing pages for fuller address
+        "date_restrict": "m1",               # only results from the last month
     },
 }
 

@@ -46,10 +46,12 @@
       <div class="job__company">{{ j["Company Name"] or "Unknown company" }}</div>
       <div class="job__chips">
         {% if j.live %}{{ live_chip(j.live) }}{% endif %}
-        {% if j["Posted"] %}{{ chip("Posted " ~ j["Posted"]) }}{% endif %}
+        {% if j.fresh and j.fresh.tier != 'unknown' %}
+          {{ chip((("🔥 " if j.fresh.fresh else "") ~ j.fresh.label), ("success" if j.fresh.fresh else ("warn" if j.fresh.tier == 'recent' else "muted"))) }}
+        {% elif j["Posted"] %}{{ chip("Posted " ~ j["Posted"]) }}{% endif %}
         {% if j["Location"] %}{{ chip("📍 " ~ j["Location"]) }}{% endif %}
         {% if j["Source"] %}{{ chip(j["Source"], "info") }}{% endif %}
-        {% if not j["Posted"] and j["Date Found"] %}{{ chip("Found " ~ j["Date Found"]) }}{% endif %}
+        {% if not j.fresh and not j["Posted"] and j["Date Found"] %}{{ chip("Found " ~ j["Date Found"]) }}{% endif %}
         {% if j["Reason"] %}{{ chip(j["Reason"], "muted") }}{% endif %}
       </div>
       {% if j["Match Reason"] %}<div class="job__why">💡 {{ j["Match Reason"] }}</div>{% endif %}
