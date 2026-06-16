@@ -2,12 +2,24 @@
 {% from "_macros.html" import chip, status_chip, prob_badge, empty, delete_form %}
 {% block content %}
 <div class="section">
+  {# ── Applied vs Scraped timeline ──────────────────────────────────────── #}
+  <div class="toolbar">
+    <div class="seg">
+      <a class="seg__btn {{ 'active' if view != 'scraped' else '' }}" href="/history">✅ Applied
+        {% if counts.applied %}<span class="seg__n">{{ counts.applied }}</span>{% endif %}</a>
+      <a class="seg__btn {{ 'active' if view == 'scraped' else '' }}" href="/history?view=scraped">📥 Scraped
+        {% if counts.manual_pending %}<span class="seg__n">{{ counts.manual_pending }}</span>{% endif %}</a>
+    </div>
+  </div>
+
   {% if groups %}
     {% for g in groups %}
     <div class="day">
       <div class="day__head">
         <span class="day__label">{{ g.label }}</span>
-        <span class="day__count">{{ g.count }} application{{ '' if g.count == 1 else 's' }}</span>
+        <span class="day__count">
+          {% if view == 'scraped' %}{{ g.count }} job{{ '' if g.count == 1 else 's' }} found
+          {% else %}{{ g.count }} application{{ '' if g.count == 1 else 's' }}{% endif %}</span>
       </div>
       <div class="stack">
         {% for j in g.jobs %}
@@ -16,22 +28,32 @@
             <div class="job__title">{{ j["Job Title"] or "Untitled role" }}</div>
             <div class="job__company">{{ j["Company Name"] or "Unknown company" }}</div>
             <div class="job__chips">
-              {{ status_chip(j["Status"]) }}
+              {% if view == 'scraped' %}
+                {% if j["Posted"] %}{{ chip("🔥 " ~ j["Posted"]) }}{% endif %}
+              {% else %}
+                {{ status_chip(j["Status"]) }}
+              {% endif %}
               {% if j["Location"] %}{{ chip("📍 " ~ j["Location"]) }}{% endif %}
               {% if j["Source"] %}{{ chip(j["Source"], "info") }}{% endif %}
-              {% if j["Resume Used"] %}{{ chip("📄 " ~ j["Resume Used"], "muted") }}{% endif %}
+              {% if view != 'scraped' and j["Resume Used"] %}{{ chip("📄 " ~ j["Resume Used"], "muted") }}{% endif %}
             </div>
           </div>
           {% if j.prob %}{{ prob_badge(j.prob) }}{% endif %}
           <div class="job__actions">
             {% if j["Job URL"] %}<a class="btn btn--ghost btn--sm" href="{{ j['Job URL'] }}" target="_blank" rel="noopener">Open ↗</a>{% endif %}
-            {{ delete_form("/applied/delete", {"url": j["Job URL"], "origin": "/history"}, "Delete this application from your records?") }}
+            {% if view == 'scraped' %}
+              <a class="btn btn--soft btn--sm" href="/manual?source={{ (j['Source'] or '')|lower }}">Review →</a>
+            {% else %}
+              {{ delete_form("/applied/delete", {"url": j["Job URL"], "origin": "/history"}, "Delete this application from your records?") }}
+            {% endif %}
           </div>
         </div>
         {% endfor %}
       </div>
     </div>
     {% endfor %}
+  {% elif view == 'scraped' %}
+    <div class="card">{{ empty("📥", "No scraped jobs yet", "Hit “Run now” to fetch postings. Everything the bot finds shows here, grouped by the day it was found.") }}</div>
   {% else %}
     <div class="card">{{ empty("🕘", "No applications yet", "Jobs you apply to (or mark applied) land here, newest day first. Today's applications move out of the dashboard and into your history.") }}</div>
   {% endif %}

@@ -316,6 +316,29 @@ def applied_history() -> list[dict]:
     return ordered
 
 
+def scraped_history() -> list[dict]:
+    """Pending scraped jobs grouped by the day they were found, newest first.
+
+    Mirrors `applied_history` but for jobs still awaiting action in the Manual
+    sheet, keyed on `Date Found` (falling back to `Posted`). Read-only timeline
+    of what the bot has discovered for you.
+    """
+    groups: dict[str, dict] = {}
+    for j in manual_jobs():
+        d = _parse_date(j.get("Date Found")) or _parse_date(j.get("Posted"))
+        key = d.isoformat() if d else "unknown"
+        groups.setdefault(key, {"key": key, "date": d, "jobs": []})["jobs"].append(j)
+
+    dated = sorted((g for g in groups.values() if g["date"]),
+                   key=lambda g: g["date"], reverse=True)
+    undated = [g for g in groups.values() if not g["date"]]
+    ordered = dated + undated
+    for g in ordered:
+        g["label"] = _date_label(g["date"])
+        g["count"] = len(g["jobs"])
+    return ordered
+
+
 def pipeline_summary() -> dict:
     return get_pipeline_summary()
 

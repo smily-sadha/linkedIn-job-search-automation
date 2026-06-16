@@ -83,8 +83,18 @@ def _render(name: str, ctx: dict) -> HTMLResponse:
 
 # ── Pages ───────────────────────────────────────────────────────────────────--
 @app.get("/", response_class=HTMLResponse)
-def overview(request: Request, msg: str | None = None, err: str | None = None):
-    manual = repo.manual_jobs()
+def overview(request: Request, msg: str | None = None, err: str | None = None,
+             source: str | None = None, new: str | None = None,
+             fresh: str | None = None):
+    new_only = new in ("1", "true", "yes")
+    fresh_only = fresh in ("1", "true", "yes")
+    manual = repo.manual_jobs(new_only=new_only, fresh_only=fresh_only)
+    # Per-platform tabs are computed before the source filter so each tab keeps
+    # its full count regardless of which platform is currently selected.
+    tabs = repo.source_tabs(manual)
+    source = (source or "").strip().lower() or None
+    if source:
+        manual = [j for j in manual if repo.source_key(j) == source]
     walks = repo.walkins()
     cold = repo.pending_cold_mails()
     return _render("overview.html", _ctx(
@@ -94,6 +104,8 @@ def overview(request: Request, msg: str | None = None, err: str | None = None):
         top_manual=manual[:5],
         upcoming_walkins=walks[:3],
         cold_preview=cold[:3],
+        source_tabs=tabs, source=source,
+        new_only=new_only, fresh_only=fresh_only,
     ))
 
 
@@ -151,11 +163,18 @@ def applied_page(request: Request, msg: str | None = None, err: str | None = Non
 
 
 @app.get("/history", response_class=HTMLResponse)
-def history_page(request: Request, msg: str | None = None, err: str | None = None):
+def history_page(request: Request, msg: str | None = None, err: str | None = None,
+                 view: str | None = None):
+    scraped = (view or "").strip().lower() == "scraped"
+    if scraped:
+        title, subtitle = "Scraped Jobs", "Everything the bot found, grouped by day"
+        groups = repo.scraped_history()
+    else:
+        title, subtitle = "Application History", "Everything you've applied to, grouped by day"
+        groups = repo.applied_history()
     return _render("history.html", _ctx(
-        request, "history", "Application History",
-        "Everything you've applied to, grouped by day", msg=msg, err=err,
-        groups=repo.applied_history(),
+        request, "history", title, subtitle, msg=msg, err=err,
+        groups=groups, view=("scraped" if scraped else "applied"),
     ))
 
 
