@@ -28,9 +28,26 @@ YOUR_EMAIL = _env("YOUR_EMAIL", "your@gmail.com")
 YOUR_PHONE = _env("YOUR_PHONE", "+91-XXXXXXXXXX")
 
 # ── Resumes ────────────────────────────────────────────────────────────────
-# You currently have a single resume, so every variant points at it. When you
-# add tailored versions, drop them in config/resumes/ and update the paths here.
-_SINGLE_RESUME = "config/resumes/sadhasivam updated resume 1.1.pdf"
+# Just drop ONE resume PDF into config/resumes/ — whatever it's named. The bot
+# auto-picks it, so swapping in a different resume immediately changes which
+# jobs are searched/scored (skills are re-read from the new file). No code edit
+# needed. If several PDFs are present, the most recently modified one wins.
+_RESUMES_DIR = ROOT / "config" / "resumes"
+
+
+def _detect_resume() -> str:
+    pdfs = sorted(
+        _RESUMES_DIR.glob("*.pdf"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if pdfs:
+        return str(pdfs[0])
+    # Fallback: keep a stable path so logs point somewhere sensible if empty.
+    return str(_RESUMES_DIR / "resume.pdf")
+
+
+_SINGLE_RESUME = _detect_resume()
 RESUMES = {
     "python": _SINGLE_RESUME,
     "java": _SINGLE_RESUME,
