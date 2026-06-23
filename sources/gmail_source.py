@@ -27,6 +27,7 @@ from sources.base_source import BaseSource
 _IMAP_HOST = "imap.gmail.com"
 _LINKEDIN_VIEW = re.compile(r"/jobs/view/(\d+)")
 _GENERIC_JOB_LINK = re.compile(r"(job|/viewjob|/jobs/|jobid|job_id)", re.IGNORECASE)
+_NAUKRI_LINK = re.compile(r"/jd/job-listings-|/job-listings-|job-listings-", re.IGNORECASE)
 
 
 def _decode(value: str) -> str:
@@ -111,7 +112,7 @@ class GmailSource(BaseSource):
                 typ, data = imap.search(None, f'(FROM "{sender}" SINCE "{since}")')
                 if typ == "OK" and data and data[0]:
                     uids.extend(data[0].split())
-            uids = uids[-max_emails:]  # newest N
+            uids = list(dict.fromkeys(uids))[-max_emails:]  # newest N, deduped
             self.logger.info("[gmail] %d candidate emails since %s; keeping last %dh",
                              len(uids), since, lookback_hours)
 
@@ -168,6 +169,7 @@ class GmailSource(BaseSource):
                     "Naukri" if "naukri" in sender else
                     "Indeed" if "indeed" in sender else "Email")
         linkedin = platform == "LinkedIn"
+        naukri = platform == "Naukri"
         # Persist the real platform as the job's source so the UI can group by
         # platform (LinkedIn / Naukri / Indeed), not lump all alert mail as
         # "gmail". Rate-limiting still keys on self.name internally, unaffected.
@@ -180,11 +182,12 @@ class GmailSource(BaseSource):
         for a in soup.find_all("a", href=True):
             href = a["href"]
             is_li = bool(_LINKEDIN_VIEW.search(href))
+            is_naukri = naukri and self._looks_like_naukri_job_link(href, a.get_text(" ", strip=True))
             # For LinkedIn, only real job-view links count (drops header/footer).
             if linkedin:
                 if not is_li:
                     continue
-            elif not (is_li or _GENERIC_JOB_LINK.search(href)):
+            elif not (is_li or is_naukri or _GENERIC_JOB_LINK.search(href)):
                 continue
             if any(w in href.lower() for w in ("unsubscribe", "settings", "/help", "email_open")):
                 continue
@@ -199,6 +202,8 @@ class GmailSource(BaseSource):
         jobs = []
         for entry in best.values():
             title, company, location = self._parse_job_text(entry["text"])
+            if naukri and not _NAUKRI_LINK.search(entry["url"]):
+                continue
             if not title or title.lower() in self._NON_JOB:
                 continue
             jobs.append({
@@ -211,6 +216,19 @@ class GmailSource(BaseSource):
                 "platform": platform,
             })
         return jobs
+
+    @staticmethod
+    def _looks_like_naukri_job_link(href: str, text: str) -> bool:
+        """Keep only direct Naukri job-listing links, not footers/marketing."""
+        haystack = f"{href} {text}".lower()
+        if any(w in haystack for w in GmailSource._NON_JOB):
+            return False
+        if any(w in haystack for w in (
+            "terms", "privacy", "security advice", "feedback", "ambitionbox",
+            "recommendedjobs", "update profile", "get app", "report a problem",
+        )):
+            return False
+        return bool(_NAUKRI_LINK.search(href))
 
     @staticmethod
     def _parse_job_text(text: str) -> tuple[str, str, str]:
@@ -236,3 +254,4 @@ class GmailSource(BaseSource):
             jid = _LINKEDIN_VIEW.search(href).group(1)
             return f"https://www.linkedin.com/jobs/view/{jid}/"
         return href.split("?")[0]
+

@@ -161,6 +161,7 @@ SOURCES = {
             "jobs-listings@linkedin.com",
             "alerts@naukri.com",                # Naukri job alerts (set them up)
             "jobalerts@naukri.com",
+            "naukri.com",                       # Naukri sender variants / notifications
             "alert@indeed.com",                 # Indeed job alerts (set them up)
             "donotreply@match.indeed.com",
             "invitetoapply@indeed.com",
@@ -282,3 +283,4 @@ additional information you need.
 Best regards,
 {your_name}
 """
+

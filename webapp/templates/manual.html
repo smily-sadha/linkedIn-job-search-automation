@@ -25,11 +25,11 @@
   <div class="toolbar">
     <div class="seg">
       <a class="seg__btn {{ 'active' if not new_only and not fresh_only else '' }}" href="/manual{{ ('?source=' ~ source) if source else '' }}">All
-        {% if not source and counts.manual_pending %}<span class="seg__n">{{ counts.manual_pending }}</span>{% endif %}</a>
+        <span class="seg__n">{{ counts.manual_pending }}</span></a>
       <a class="seg__btn {{ 'active' if fresh_only else '' }}" href="/manual?fresh=1{{ src_suffix }}">✨ Fresh
-        {% if not source and counts.manual_fresh %}<span class="seg__n">{{ counts.manual_fresh }}</span>{% endif %}</a>
+        <span class="seg__n">{{ counts.manual_fresh }}</span></a>
       <a class="seg__btn {{ 'active' if new_only else '' }}" href="/manual?new=1{{ src_suffix }}">🆕 New today
-        {% if not source and counts.manual_new %}<span class="seg__n">{{ counts.manual_new }}</span>{% endif %}</a>
+        <span class="seg__n">{{ counts.manual_new }}</span></a>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <form method="post" action="/manual/verify">
@@ -65,3 +65,4 @@
   {% endif %}
 </div>
 {% endblock %}
+

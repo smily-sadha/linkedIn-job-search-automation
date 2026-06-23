@@ -5,4 +5,8 @@ browse + click jobs, update status, approve cold mails, and trigger a run from
 the browser instead of the CLI/Excel. Run with:
 
     python -m webapp        # http://127.0.0.1:8000
+
+If port 8000 is busy, override it with:
+
+    WEBAPP_PORT=8800 python -m webapp
 """
